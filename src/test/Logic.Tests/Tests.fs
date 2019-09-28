@@ -50,6 +50,43 @@ let overlapTests =
 
       Expect.isFalse (Logic.overlapsWith request1 request2) "The requests don't overlap"
     }
+
+    test "Requests overlap when being on same HalfDay" {
+      let request1 = {
+        UserId = "jdoe"
+        RequestId = Guid.NewGuid()
+        Start = { Date = DateTime(2019, 10, 1); HalfDay = AM }
+        End = { Date = DateTime(2019, 10, 2); HalfDay = AM }
+      }
+
+      let request2 = {
+        UserId = "jdoe"
+        RequestId = Guid.NewGuid()
+        Start = { Date = DateTime(2019, 10, 2); HalfDay = AM }
+        End = { Date = DateTime(2019, 10, 2); HalfDay = PM }
+      }
+
+      Expect.isTrue (Logic.overlapsWith request1 request2) "Requests should overlap"
+      Expect.isTrue (Logic.overlapsWith request2 request1) "Requests should overlap"
+    }
+
+    test "Requests don't overlap when being on different HalfDay" {
+      let request1 = {
+        UserId = "jdoe"
+        RequestId = Guid.NewGuid()
+        Start = { Date = DateTime(2019, 10, 1); HalfDay = AM }
+        End = { Date = DateTime(2019, 10, 2); HalfDay = AM }
+      }
+
+      let request2 = {
+        UserId = "jdoe"
+        RequestId = Guid.NewGuid()
+        Start = { Date = DateTime(2019, 10, 2); HalfDay = PM }
+        End = { Date = DateTime(2019, 10, 3); HalfDay = AM }
+      }
+
+      Expect.isFalse (Logic.overlapsWith request1 request2) "Requests should not overlap"
+    }
   ]
 
 [<Tests>]
