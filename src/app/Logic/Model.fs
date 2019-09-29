@@ -70,7 +70,10 @@ module Logic =
             true
 
     let overlapsWithAnyRequest (otherRequests: TimeOffRequest seq) request =
-        false //TODO: write this function using overlapsWith
+        let overlapswithReq elem = overlapsWith request elem
+        otherRequests
+        |> Seq.map overlapswithReq
+        |> Seq.contains true //TODO: write this function using overlapsWith
 
     let createRequest activeUserRequests  request =
         if request |> overlapsWithAnyRequest activeUserRequests then
