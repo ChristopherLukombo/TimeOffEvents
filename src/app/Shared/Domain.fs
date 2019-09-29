@@ -24,3 +24,10 @@ type TimeOffRequest = {
     Start: Boundary
     End: Boundary
 }
+
+type IDataProvider =
+  abstract member Today : DateTime
+
+type Settings() =
+    interface IDataProvider with
+        member this.Today with get() = DateTime.Today

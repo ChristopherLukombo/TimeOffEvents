@@ -76,10 +76,11 @@ module Logic =
         |> Seq.contains true //TODO: write this function using overlapsWith
 
     let createRequest activeUserRequests  request =
+        let a = Settings()
         if request |> overlapsWithAnyRequest activeUserRequests then
             Error "Overlapping request"
         // This DateTime.Today must go away!
-        elif request.Start.Date <= DateTime.Today then
+        elif request.Start.Date <= (a :> IDataProvider).Today then
             Error "The request starts in the past"
         else
             Ok [RequestCreated request]
