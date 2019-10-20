@@ -131,7 +131,7 @@ module Logic =
 
     let findFutureHolidays (userRequests: UserRequestsState) =
            let tomorrow = (Settings() :> IDataProvider).Today.AddDays(1.1)
-           let endYear = DateTime(DateTime.Now.Year , 1, 1)
+           let endYear = DateTime(DateTime.Now.Year , 1, 31)
            if Map.empty<Guid, RequestState> <> userRequests then
                 userRequests
                     |> Map.toSeq
