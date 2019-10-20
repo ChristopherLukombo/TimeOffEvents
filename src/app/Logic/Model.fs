@@ -115,3 +115,30 @@ module Logic =
                 else
                     let requestState = defaultArg (userRequests.TryFind requestId) NotCreated
                     validateRequest requestState
+
+    let findActiveRequests (userRequests: UserRequestsState) request =
+           let beginYear = DateTime(DateTime.Now.Year , 1, 1)
+           let now = (Settings() :> IDataProvider).Today
+           if Map.empty<Guid, RequestState> <> userRequests then
+                userRequests
+                    |> Map.toSeq
+                    |> Seq.map (fun (_, state) -> state)
+                    |> Seq.filter (fun state -> state.Request.Start.Date >= beginYear && state.Request.Start.Date <= now)
+                    |> Seq.where (fun state -> state.IsActive)
+                    |> Seq.map (fun state -> state.Request)
+           else
+               null
+
+    let findFutureHolidays (userRequests: UserRequestsState) =
+           let tomorrow = (Settings() :> IDataProvider).Today.AddDays(1.1)
+           let endYear = DateTime(DateTime.Now.Year , 1, 1)
+           if Map.empty<Guid, RequestState> <> userRequests then
+                userRequests
+                    |> Map.toSeq
+                    |> Seq.map (fun (_, state) -> state)
+                    |> Seq.filter (fun state -> state.Request.Start.Date >= tomorrow && state.Request.Start.Date <= endYear)
+                    |> Seq.where (fun state -> state.IsActive)
+                    |> Seq.map (fun state -> state.Request)
+           else
+               null
+
