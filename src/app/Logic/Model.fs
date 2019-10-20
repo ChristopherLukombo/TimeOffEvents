@@ -28,17 +28,29 @@ module Logic =
 
     type RequestState =
         | NotCreated
+        | Rejected
+        | Canceled
         | PendingValidation of TimeOffRequest
+        | PendingCancel of TimeOffRequest
+        | CancelRejected of TimeOffRequest
         | Validated of TimeOffRequest with
         member this.Request =
             match this with
             | NotCreated -> invalidOp "Not created"
-            | PendingValidation request
+            | Rejected -> invalidOp "Rejected"
+            | Canceled -> invalidOp "Canceled"
+            | PendingValidation request -> request
+            | PendingCancel request -> request 
+            | CancelRejected request -> request
             | Validated request -> request
         member this.IsActive =
             match this with
             | NotCreated -> false
-            | PendingValidation _
+            | Rejected -> false
+            | Canceled -> false
+            | PendingCancel _ -> true
+            | PendingValidation _ -> true
+            | CancelRejected _ -> true
             | Validated _ -> true
 
     type UserRequestsState = Map<Guid, RequestState>
@@ -115,3 +127,4 @@ module Logic =
                 else
                     let requestState = defaultArg (userRequests.TryFind requestId) NotCreated
                     validateRequest requestState
+
