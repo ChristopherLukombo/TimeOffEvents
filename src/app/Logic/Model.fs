@@ -28,17 +28,29 @@ module Logic =
 
     type RequestState =
         | NotCreated
+        | Rejected
+        | Canceled
         | PendingValidation of TimeOffRequest
+        | PendingCancel of TimeOffRequest
+        | CancelRejected of TimeOffRequest
         | Validated of TimeOffRequest with
         member this.Request =
             match this with
             | NotCreated -> invalidOp "Not created"
-            | PendingValidation request
+            | Rejected -> invalidOp "Rejected"
+            | Canceled -> invalidOp "Canceled"
+            | PendingValidation request -> request
+            | PendingCancel request -> request 
+            | CancelRejected request -> request
             | Validated request -> request
         member this.IsActive =
             match this with
             | NotCreated -> false
-            | PendingValidation _
+            | Rejected -> false
+            | Canceled -> false
+            | PendingCancel _ -> true
+            | PendingValidation _ -> true
+            | CancelRejected _ -> true
             | Validated _ -> true
 
     type UserRequestsState = Map<Guid, RequestState>
@@ -115,3 +127,44 @@ module Logic =
                 else
                     let requestState = defaultArg (userRequests.TryFind requestId) NotCreated
                     validateRequest requestState
+
+    let findActiveRequests (userRequests: UserRequestsState) (userId: UserId) =
+           let beginYear = DateTime(DateTime.Now.Year , 1, 1)
+           let now = (Settings() :> IDataProvider).Today
+           if Map.empty<Guid, RequestState> <> userRequests then
+                userRequests
+                    |> Map.toSeq
+                    |> Seq.map (fun (_, state) -> state)
+                    |> Seq.filter (fun state -> state.Request.Start.Date >= beginYear && state.Request.Start.Date <= now)
+                    |> Seq.where (fun state -> state.IsActive)
+                    |> Seq.map (fun state -> state.Request)
+                    |> Seq.filter (fun state -> state.UserId = userId)
+                    |> Seq.length
+           else
+               0
+
+    let findFutureHolidays (userRequests: UserRequestsState) (userId: UserId) =
+           let tomorrow = (Settings() :> IDataProvider).Today.AddDays(1.1)
+           let endYear = DateTime(DateTime.Now.Year , 1, 31)
+           if Map.empty<Guid, RequestState> <> userRequests then
+                userRequests
+                    |> Map.toSeq
+                    |> Seq.map (fun (_, state) -> state)
+                    |> Seq.filter (fun state -> state.Request.Start.Date >= tomorrow && state.Request.Start.Date <= endYear)
+                    |> Seq.where (fun state -> state.IsActive)
+                    |> Seq.map (fun state -> state.Request)
+                    |> Seq.filter (fun state -> state.UserId = userId)
+                    |> Seq.length
+           else
+               0
+
+    let findAvailableHolidays (userRequests: UserRequestsState) (user: User) =
+        match user with
+        | Employee userId -> 
+            let accruedHolidaysToDays = 0 // TODO : Calculer les jours de congé "gagné" depuis le début de l'année
+            let remainingHolidaysFromLastYear = 0 // TODO : Récupérer les congés restant de l'année prédédente
+            let activeHolidays = findActiveRequests userRequests userId
+            let futureHolidays = findFutureHolidays userRequests userId
+
+            accruedHolidaysToDays + remainingHolidaysFromLastYear - ( activeHolidays + futureHolidays)
+        | _ -> invalidOp "User is not an employee"
