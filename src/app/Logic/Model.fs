@@ -144,6 +144,21 @@ module Logic =
            else
                0
 
+    let findRemainingHolidaysFromLastYear  (userRequests: UserRequestsState) (userId: UserId) (consultationDate: DateTime) =
+        let dateLastYear = DateTime(consultationDate.Year - 1, 12,  31)
+        if Map.empty<Guid, RequestState> <> userRequests then
+                userRequests
+                    |> Map.toSeq
+                    |> Seq.map (fun (_, state) -> state)
+                    |> Seq.filter (fun state -> state.Request.Start.Date <= dateLastYear)
+                    |> Seq.where (fun state -> state.IsActive)
+                    |> Seq.map (fun state -> state.Request)
+                    |> Seq.filter (fun state -> state.UserId = userId)
+                    |> Seq.length
+           else
+               0
+
+
     let findActiveRequests (userRequests: UserRequestsState) (userId: UserId) (consultationDate: DateTime) =
            let beginYear = DateTime(consultationDate.Year , 1, 1)
            if Map.empty<Guid, RequestState> <> userRequests then
@@ -179,7 +194,7 @@ module Logic =
         match user with
         | Employee userId ->
             let accruedHolidaysToDays = findAccruedHolidaysToDays  userRequests userId consultationDate
-            let remainingHolidaysFromLastYear = 0 // TODO : Récupérer les congés restant de l'année prédédente
+            let remainingHolidaysFromLastYear = findRemainingHolidaysFromLastYear userRequests userId consultationDate
             let activeHolidays = findActiveRequests userRequests userId consultationDate
             let futureHolidays = findFutureHolidays userRequests userId consultationDate
 
