@@ -47,12 +47,7 @@ module Logic =
             | NotCreated -> invalidOp "Not created"
             | Canceled -> invalidOp "Canceled"
             | PendingValidation request -> request
-<<<<<<< HEAD
-            | PendingCancel request -> request
-            | CancelRejected request -> request
-=======
             | PendingCancel request -> request 
->>>>>>> Ajout des type de Command et de Requete manquante
             | Validated request -> request
         member this.IsActive =
             match this with
