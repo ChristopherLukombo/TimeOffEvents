@@ -4,23 +4,33 @@ open System
 
 // Then our commands
 type Command =
-    | RequestTimeOff of TimeOffRequest
-    | ValidateRequest of UserId * Guid
+    | RequestTimeOff of TimeOffRequest // Demander un congé
+    | ValidateRequest of UserId * Guid // Valider une demande de congé
+    | CancelRequest of UserId * Guid // Annuler une demande de congé
+    | SubmitCancelRequest of UserId * Guid // Demander l'annulation d'une demande de congé
+    | RejectCancelRequest of UserId * Guid // Annuler une demande d'annulatioin de demande de congé
     with
     member this.UserId =
         match this with
         | RequestTimeOff request -> request.UserId
         | ValidateRequest (userId, _) -> userId
+        | CancelRequest (userId, _) -> userId
+        | SubmitCancelRequest (userId, _) -> userId
+        | RejectCancelRequest (userId, _) -> userId
 
 // And our events
 type RequestEvent =
     | RequestCreated of TimeOffRequest
     | RequestValidated of TimeOffRequest
+    | RequestCancelled of TimeOffRequest
+    | CancelRequestRejected of TimeOffRequest
     with
     member this.Request =
         match this with
         | RequestCreated request -> request
         | RequestValidated request -> request
+        | RequestCancelled request -> request
+        | CancelRequestRejected request -> request
 
 // We then define the state of the system,
 // and our 2 main functions `decide` and `evolve`
@@ -28,29 +38,28 @@ module Logic =
 
     type RequestState =
         | NotCreated
-        | Rejected
         | Canceled
         | PendingValidation of TimeOffRequest
         | PendingCancel of TimeOffRequest
-        | CancelRejected of TimeOffRequest
         | Validated of TimeOffRequest with
         member this.Request =
             match this with
             | NotCreated -> invalidOp "Not created"
-            | Rejected -> invalidOp "Rejected"
             | Canceled -> invalidOp "Canceled"
             | PendingValidation request -> request
+<<<<<<< HEAD
             | PendingCancel request -> request
             | CancelRejected request -> request
+=======
+            | PendingCancel request -> request 
+>>>>>>> Ajout des type de Command et de Requete manquante
             | Validated request -> request
         member this.IsActive =
             match this with
             | NotCreated -> false
-            | Rejected -> false
             | Canceled -> false
             | PendingCancel _ -> true
             | PendingValidation _ -> true
-            | CancelRejected _ -> true
             | Validated _ -> true
 
     type UserRequestsState = Map<Guid, RequestState>
@@ -59,6 +68,8 @@ module Logic =
         match event with
         | RequestCreated request -> PendingValidation request
         | RequestValidated request -> Validated request
+        | RequestCancelled request -> Canceled
+        | CancelRequestRejected request -> Validated request
 
     let evolveUserRequests (userRequests: UserRequestsState) (event: RequestEvent) =
         let requestState = defaultArg (Map.tryFind event.Request.RequestId userRequests) NotCreated
@@ -127,6 +138,12 @@ module Logic =
                 else
                     let requestState = defaultArg (userRequests.TryFind requestId) NotCreated
                     validateRequest requestState
+            | CancelRequest _ -> 
+                Error "Not implemented" //  TODO
+            | SubmitCancelRequest _ ->
+                Error "Not implemented" // TODO
+            | RejectCancelRequest _ ->
+                Error " Not implemented"
 
 
     let findAccruedHolidaysToDays (userRequests: UserRequestsState) (userId: UserId) (consultationDate: DateTime) =
