@@ -4,23 +4,33 @@ open System
 
 // Then our commands
 type Command =
-    | RequestTimeOff of TimeOffRequest
-    | ValidateRequest of UserId * Guid
+    | RequestTimeOff of TimeOffRequest // Demander un congé
+    | ValidateRequest of UserId * Guid // Valider une demande de congé
+    | CancelRequest of UserId * Guid // Annuler une demande de congé
+    | SubmitCancelRequest of UserId * Guid // Demander l'annulation d'une demande de congé
+    | RejectCancelRequest of UserId * Guid // Annuler une demande d'annulatioin de demande de congé
     with
     member this.UserId =
         match this with
         | RequestTimeOff request -> request.UserId
         | ValidateRequest (userId, _) -> userId
+        | CancelRequest (userId, _) -> userId
+        | SubmitCancelRequest (userId, _) -> userId
+        | RejectCancelRequest (userId, _) -> userId
 
 // And our events
 type RequestEvent =
     | RequestCreated of TimeOffRequest
     | RequestValidated of TimeOffRequest
+    | RequestCancelled of TimeOffRequest
+    | CancelRequestRejected of TimeOffRequest
     with
     member this.Request =
         match this with
         | RequestCreated request -> request
         | RequestValidated request -> request
+        | RequestCancelled request -> request
+        | CancelRequestRejected request -> request
 
 // We then define the state of the system,
 // and our 2 main functions `decide` and `evolve`
@@ -28,29 +38,23 @@ module Logic =
 
     type RequestState =
         | NotCreated
-        | Rejected
         | Canceled
         | PendingValidation of TimeOffRequest
         | PendingCancel of TimeOffRequest
-        | CancelRejected of TimeOffRequest
         | Validated of TimeOffRequest with
         member this.Request =
             match this with
             | NotCreated -> invalidOp "Not created"
-            | Rejected -> invalidOp "Rejected"
             | Canceled -> invalidOp "Canceled"
             | PendingValidation request -> request
             | PendingCancel request -> request 
-            | CancelRejected request -> request
             | Validated request -> request
         member this.IsActive =
             match this with
             | NotCreated -> false
-            | Rejected -> false
             | Canceled -> false
             | PendingCancel _ -> true
             | PendingValidation _ -> true
-            | CancelRejected _ -> true
             | Validated _ -> true
 
     type UserRequestsState = Map<Guid, RequestState>
@@ -59,6 +63,8 @@ module Logic =
         match event with
         | RequestCreated request -> PendingValidation request
         | RequestValidated request -> Validated request
+        | RequestCancelled request -> Canceled
+        | CancelRequestRejected request -> Validated request
 
     let evolveUserRequests (userRequests: UserRequestsState) (event: RequestEvent) =
         let requestState = defaultArg (Map.tryFind event.Request.RequestId userRequests) NotCreated
@@ -119,15 +125,36 @@ module Logic =
                 else
                     let requestState = defaultArg (userRequests.TryFind requestId) NotCreated
                     validateRequest requestState
+            | CancelRequest _ -> 
+                Error "Not implemented" //  TODO
+            | SubmitCancelRequest _ ->
+                Error "Not implemented" // TODO
+            | RejectCancelRequest _ ->
+                Error " Not implemented"
 
-    let findActiveRequests (userRequests: UserRequestsState) (userId: UserId) =
-           let beginYear = DateTime(DateTime.Now.Year , 1, 1)
-           let now = (Settings() :> IDataProvider).Today
+
+    let findAccruedHolidaysToDays (userRequests: UserRequestsState) (userId: UserId) (consultationDate: DateTime) =
+           let dateTmp = consultationDate.AddMonths(-1);
+           let lastDayOfMonthConsultation = DateTime.DaysInMonth(dateTmp.Year, dateTmp.Month)
+           let dateOfLastMonth = DateTime(dateTmp.Year , dateTmp.Month,  lastDayOfMonthConsultation)
            if Map.empty<Guid, RequestState> <> userRequests then
                 userRequests
                     |> Map.toSeq
                     |> Seq.map (fun (_, state) -> state)
-                    |> Seq.filter (fun state -> state.Request.Start.Date >= beginYear && state.Request.Start.Date <= now)
+                    |> Seq.filter (fun state -> state.Request.Start.Date <= dateOfLastMonth)
+                    |> Seq.map (fun state -> state.Request)
+                    |> Seq.filter (fun state -> state.UserId = userId)
+                    |> Seq.length
+           else
+               0
+
+    let findRemainingHolidaysFromLastYear  (userRequests: UserRequestsState) (userId: UserId) (consultationDate: DateTime) =
+        let dateLastYear = DateTime(consultationDate.Year - 1, 12,  31)
+        if Map.empty<Guid, RequestState> <> userRequests then
+                userRequests
+                    |> Map.toSeq
+                    |> Seq.map (fun (_, state) -> state)
+                    |> Seq.filter (fun state -> state.Request.Start.Date <= dateLastYear)
                     |> Seq.where (fun state -> state.IsActive)
                     |> Seq.map (fun state -> state.Request)
                     |> Seq.filter (fun state -> state.UserId = userId)
@@ -135,9 +162,25 @@ module Logic =
            else
                0
 
-    let findFutureHolidays (userRequests: UserRequestsState) (userId: UserId) =
-           let tomorrow = (Settings() :> IDataProvider).Today.AddDays(1.1)
-           let endYear = DateTime(DateTime.Now.Year , 1, 31)
+
+    let findActiveRequests (userRequests: UserRequestsState) (userId: UserId) (consultationDate: DateTime) =
+           let beginYear = DateTime(consultationDate.Year , 1, 1)
+           if Map.empty<Guid, RequestState> <> userRequests then
+                userRequests
+                    |> Map.toSeq
+                    |> Seq.map (fun (_, state) -> state)
+                    |> Seq.filter (fun state -> state.Request.Start.Date >= beginYear && state.Request.Start.Date <= consultationDate)
+                    |> Seq.where (fun state -> state.IsActive)
+                    |> Seq.map (fun state -> state.Request)
+                    |> Seq.filter (fun state -> state.UserId = userId)
+                    |> Seq.length
+           else
+               0
+
+
+    let findFutureHolidays (userRequests: UserRequestsState) (userId: UserId) (consultationDate: DateTime)  =
+           let tomorrow = consultationDate.AddDays(1.0)
+           let endYear = DateTime(consultationDate.Year , 12, 31)
            if Map.empty<Guid, RequestState> <> userRequests then
                 userRequests
                     |> Map.toSeq
@@ -150,13 +193,14 @@ module Logic =
            else
                0
 
-    let findAvailableHolidays (userRequests: UserRequestsState) (user: User) =
-        match user with
-        | Employee userId -> 
-            let accruedHolidaysToDays = 0 // TODO : Calculer les jours de congé "gagné" depuis le début de l'année
-            let remainingHolidaysFromLastYear = 0 // TODO : Récupérer les congés restant de l'année prédédente
-            let activeHolidays = findActiveRequests userRequests userId
-            let futureHolidays = findFutureHolidays userRequests userId
 
-            accruedHolidaysToDays + remainingHolidaysFromLastYear - ( activeHolidays + futureHolidays)
+    let findAvailableHolidays (userRequests: UserRequestsState) (user: User) (consultationDate: DateTime) =
+        match user with
+        | Employee userId ->
+            let accruedHolidaysToDays = findAccruedHolidaysToDays  userRequests userId consultationDate
+            let remainingHolidaysFromLastYear = findRemainingHolidaysFromLastYear userRequests userId consultationDate
+            let activeHolidays = findActiveRequests userRequests userId consultationDate
+            let futureHolidays = findFutureHolidays userRequests userId consultationDate
+
+            accruedHolidaysToDays + remainingHolidaysFromLastYear - (activeHolidays + futureHolidays)
         | _ -> invalidOp "User is not an employee"
