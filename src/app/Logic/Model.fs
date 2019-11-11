@@ -86,11 +86,11 @@ module Logic =
         |> Seq.contains true //TODO: write this function using overlapsWith
 
     let createRequest activeUserRequests  request =
-        let a = Settings()
+        let dateProvider = DateProvider()
         if request |> overlapsWithAnyRequest activeUserRequests then
             Error "Overlapping request"
         // This DateTime.Today must go away!
-        elif request.Start.Date <= (a :> IDataProvider).Today then
+        elif request.Start.Date <= (dateProvider :> IDateProvider).CurrentDate then
             Error "The request starts in the past"
         else
             Ok [RequestCreated request]
@@ -136,7 +136,8 @@ module Logic =
     let findAccruedHolidaysToDays (userRequests: UserRequestsState) (userId: UserId) (consultationDate: DateTime) =
            let dateTmp = consultationDate.AddMonths(-1);
            let lastDayOfMonthConsultation = DateTime.DaysInMonth(dateTmp.Year, dateTmp.Month)
-           let dateOfLastMonth = DateTime(dateTmp.Year , dateTmp.Month,  lastDayOfMonthConsultation)
+           let dateProvider = DateProvider()
+           let dateOfLastMonth = (dateProvider :> IDateProvider).DateTime dateTmp.Year dateTmp.Month lastDayOfMonthConsultation
            if Map.empty<Guid, RequestState> <> userRequests then
                 userRequests
                     |> Map.toSeq
@@ -149,7 +150,8 @@ module Logic =
                0
 
     let findRemainingHolidaysFromLastYear  (userRequests: UserRequestsState) (userId: UserId) (consultationDate: DateTime) =
-        let dateLastYear = DateTime(consultationDate.Year - 1, 12,  31)
+        let dateProvider = DateProvider()
+        let dateLastYear = (dateProvider :> IDateProvider).DateTime (consultationDate.Year - 1)  12 31
         if Map.empty<Guid, RequestState> <> userRequests then
                 userRequests
                     |> Map.toSeq
@@ -164,7 +166,8 @@ module Logic =
 
 
     let findActiveRequests (userRequests: UserRequestsState) (userId: UserId) (consultationDate: DateTime) =
-           let beginYear = DateTime(consultationDate.Year , 1, 1)
+           let dateProvider = DateProvider()
+           let beginYear = (dateProvider :> IDateProvider).DateTime consultationDate.Year 1 1
            if Map.empty<Guid, RequestState> <> userRequests then
                 userRequests
                     |> Map.toSeq
@@ -179,8 +182,9 @@ module Logic =
 
 
     let findFutureHolidays (userRequests: UserRequestsState) (userId: UserId) (consultationDate: DateTime)  =
+           let dateProvider = DateProvider()
+           let endYear = (dateProvider :> IDateProvider).DateTime consultationDate.Year 12 31
            let tomorrow = consultationDate.AddDays(1.0)
-           let endYear = DateTime(consultationDate.Year , 12, 31)
            if Map.empty<Guid, RequestState> <> userRequests then
                 userRequests
                     |> Map.toSeq

@@ -25,9 +25,11 @@ type TimeOffRequest = {
     End: Boundary
 }
 
-type IDataProvider =
-  abstract member Today : DateTime
+type IDateProvider =
+  abstract member CurrentDate : DateTime
+  abstract member DateTime : int -> int -> int -> DateTime
 
-type Settings() =
-    interface IDataProvider with
-        member this.Today with get() = DateTime.Today
+type DateProvider() =
+    interface IDateProvider with
+        member this.CurrentDate = DateTime.Now
+        member this.DateTime year month day = DateTime(year, month, day)
