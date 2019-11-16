@@ -9,7 +9,7 @@ type User =
     | Employee of UserId
     | Manager
 
-type HalfDay = | AM | PM
+type HalfDay = | AM | PM // AM < PM
 
 [<CLIMutable>]
 type Boundary = {
