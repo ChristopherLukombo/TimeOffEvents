@@ -47,7 +47,7 @@ module Logic =
             | NotCreated -> invalidOp "Not created"
             | Canceled -> invalidOp "Canceled"
             | PendingValidation request -> request
-            | PendingCancel request -> request 
+            | PendingCancel request -> request
             | Validated request -> request
         member this.IsActive =
             match this with
@@ -151,7 +151,7 @@ module Logic =
 
     let findRemainingHolidaysFromLastYear  (userRequests: UserRequestsState) (userId: UserId) (consultationDate: DateTime) =
         let dateProvider = DateProvider()
-        let dateLastYear = (dateProvider :> IDateProvider).DateTime (consultationDate.Year - 1)  12 31
+        let dateLastYear = (dateProvider :> IDateProvider).DateTime (consultationDate.Year - 1) 12 31
         if Map.empty<Guid, RequestState> <> userRequests then
                 userRequests
                     |> Map.toSeq
