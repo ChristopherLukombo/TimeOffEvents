@@ -23,6 +23,7 @@ type RequestEvent =
     | RequestCreated of TimeOffRequest
     | RequestValidated of TimeOffRequest
     | RequestCancelled of TimeOffRequest
+    | CancelRequestSubmitted of TimeOffRequest
     | CancelRequestRejected of TimeOffRequest
     with
     member this.Request =
@@ -30,6 +31,7 @@ type RequestEvent =
         | RequestCreated request -> request
         | RequestValidated request -> request
         | RequestCancelled request -> request
+        | CancelRequestSubmitted request -> request
         | CancelRequestRejected request -> request
 
 // We then define the state of the system,
@@ -64,6 +66,7 @@ module Logic =
         | RequestCreated request -> PendingValidation request
         | RequestValidated request -> Validated request
         | RequestCancelled request -> Canceled
+        | CancelRequestSubmitted request -> PendingCancel request
         | CancelRequestRejected request -> Validated request
 
     let evolveUserRequests (userRequests: UserRequestsState) (event: RequestEvent) =
@@ -89,7 +92,6 @@ module Logic =
         let dateProvider = DateProvider()
         if request |> overlapsWithAnyRequest activeUserRequests then
             Error "Overlapping request"
-        // This DateTime.Today must go away!
         elif request.Start.Date <= (dateProvider :> IDateProvider).CurrentDate then
             Error "The request starts in the past"
         else
@@ -101,6 +103,33 @@ module Logic =
             Ok [RequestValidated request]
         | _ ->
             Error "Request cannot be validated"
+
+    let cancelRequest requestState =
+        match requestState with
+        | PendingValidation request ->
+            Ok [RequestCancelled request]
+        | Validated request ->
+            Ok [RequestCancelled request]
+        | PendingCancel request ->
+            Ok [RequestCancelled request]
+        | _ ->
+            Error "Request cannot be canceled"
+    
+    let submitCancelRequest requestState =
+        match requestState with
+        | PendingValidation request ->
+            Ok [CancelRequestSubmitted request]
+        | Validated request ->
+            Ok [CancelRequestSubmitted request]
+        | _ ->
+            Error "Cannot request cancel for this request"
+
+    let rejectCancelRequest requestState = 
+        match requestState with
+        | PendingCancel request -> 
+            Ok [CancelRequestRejected request]
+        | _ ->
+            Error "The cancel request cannot be rejected"
 
     let decide (userRequests: UserRequestsState) (user: User) (command: Command) =
         let relatedUserId = command.UserId
@@ -125,12 +154,21 @@ module Logic =
                 else
                     let requestState = defaultArg (userRequests.TryFind requestId) NotCreated
                     validateRequest requestState
-            | CancelRequest _ -> 
-                Error "Not implemented" //  TODO
-            | SubmitCancelRequest _ ->
-                Error "Not implemented" // TODO
-            | RejectCancelRequest _ ->
-                Error " Not implemented"
+            | CancelRequest (_, requestId) -> 
+                if user <> Manager then 
+                    Error "Unauthorized"
+                else 
+                    let requestState = defaultArg (userRequests.TryFind requestId) NotCreated 
+                    cancelRequest requestState
+            | SubmitCancelRequest (_, requestId) ->
+                let requestState = defaultArg (userRequests.TryFind requestId) NotCreated
+                submitCancelRequest requestState
+            | RejectCancelRequest (_, requestId) ->
+                if user <> Manager then 
+                    Error "Unauthorized"
+                else 
+                    let requestState = defaultArg (userRequests.TryFind requestId) NotCreated
+                    rejectCancelRequest requestState
 
 
     let findAccruedHolidaysToDays (userRequests: UserRequestsState) (userId: UserId) (consultationDate: DateTime) =
