@@ -103,13 +103,14 @@ let overlapTests =
 [<Tests>]
 let creationTests =
   testList "Creation tests" [
-    test "A request is created" {
-      let request = {
+    let request = {
         UserId = "jdoe"
         RequestId = Guid.NewGuid()
         Start = { Date = DateTime(2019, 12, 27); HalfDay = AM }
         End = { Date = DateTime(2019, 12, 27); HalfDay = PM } }
 
+
+    yield test "A request is created" {
       Given [ ]
       |> ConnectedAs (Employee "jdoe")
       |> When (RequestTimeOff request)
@@ -120,16 +121,64 @@ let creationTests =
 [<Tests>]
 let validationTests =
   testList "Validation tests" [
-    test "A request is validated" {
-      let request = {
-        UserId = "jdoe"
-        RequestId = Guid.NewGuid()
-        Start = { Date = DateTime(2019, 12, 27); HalfDay = AM }
-        End = { Date = DateTime(2019, 12, 27); HalfDay = PM } }
+
+    let request = {
+      UserId = "jdoe"
+      RequestId = Guid.NewGuid()
+      Start = { Date = DateTime(2019, 12, 27); HalfDay = AM }
+      End = { Date = DateTime(2019, 12, 27); HalfDay = PM } }
+
+    yield test "A request is validated" {
 
       Given [ RequestCreated request ]
       |> ConnectedAs Manager
       |> When (ValidateRequest ("jdoe", request.RequestId))
       |> Then (Ok [RequestValidated request]) "The request should have been validated"
     }
+
+    yield test "Wrong user cannot validate a request" {
+
+      let userEmployee = 
+        Employee "3ae70716-0be7-11ea-8d71-362b9e155667"
+
+      Given [ RequestCreated request]
+      |> ConnectedAs userEmployee
+      |> When (ValidateRequest ("jdoe", request.RequestId))
+      |> Then (Error "Unauthorized") "The request shouldn't be validated"
+    }
+  ]
+
+[<Tests>]
+let cancellingRequestTest = 
+  testList "Cancel Request tests" [
+
+    let request = {
+      UserId = "jdoe"
+      RequestId = Guid.NewGuid()
+      Start = { Date = DateTime(2019,12, 23); HalfDay = AM }
+      End = { Date = DateTime(2019, 12, 29); HalfDay = PM }
+    }
+
+    yield test "Cancel PendingValidation request succeed" {
+      Given [ RequestCreated request ]
+      |> ConnectedAs Manager
+      |> When (CancelRequest ("jdoe", request.RequestId))
+      |> Then (Ok [ RequestCancelled request ]) "The request should be cancelled"
+    }
+
+    yield test "Cancel Validated request succeed" {
+      Given [ RequestValidated request ]
+      |> ConnectedAs Manager
+      |> When (CancelRequest ("jdoe", request.RequestId))
+      |> Then (Ok [ RequestCancelled request ]) "The request should be cancelled"
+    }
+
+    yield test "Cancel PendingCancel request succeed" {
+      Given [ CancelRequestSubmitted request ]
+      |> ConnectedAs Manager
+      |> When (CancelRequest ("jdoe", request.RequestId))
+      |> Then (Ok [ RequestCancelled request ]) "The request should be cancelled"
+    }
+
+
   ]

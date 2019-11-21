@@ -105,24 +105,41 @@ module Logic =
             Error "Request cannot be validated"
 
     let cancelRequest requestState =
+        let dateProvider = DateProvider()
         match requestState with
-        | PendingValidation request ->
-            Ok [RequestCancelled request]
-        | Validated request ->
-            Ok [RequestCancelled request]
-        | PendingCancel request ->
-            Ok [RequestCancelled request]
-        | _ ->
-            Error "Request cannot be canceled"
+        | PendingValidation request | Validated request
+            ->  if request.Start.Date > (dateProvider :> IDateProvider).CurrentDate then 
+                    Ok [RequestCancelled request]
+                else 
+                    Error "Request cannot be canceled, it has already started"
+        | _ 
+            -> Error "Request cannot be canceled"
+
+    let cancelRequestByManager requestState =
+        let dateProvider = DateProvider()
+        match requestState with
+        | PendingValidation request | Validated request
+            ->  if request.Start.Date > (dateProvider :> IDateProvider).CurrentDate then 
+                    Ok [RequestCancelled request]
+                else 
+                    Error "Request cannot be canceled"
+        | PendingCancel request 
+            ->  if request.Start.Date <= (dateProvider :> IDateProvider).CurrentDate then 
+                    Ok [RequestCancelled request]
+                else 
+                    Error "Request cannot be canceled"
+        | _ -> Error "Request cannot be canceled"        
+
     
     let submitCancelRequest requestState =
+        let dateProvider = DateProvider()
         match requestState with
-        | PendingValidation request ->
-            Ok [CancelRequestSubmitted request]
-        | Validated request ->
-            Ok [CancelRequestSubmitted request]
-        | _ ->
-            Error "Cannot request cancel for this request"
+        | PendingValidation request | Validated request
+            ->  if request.Start.Date <= (dateProvider :> IDateProvider).CurrentDate && request.End.Date > (dateProvider :> IDateProvider).CurrentDate then 
+                    Ok [CancelRequestSubmitted request]
+                else
+                    Error "Cannot submit a cancel request for this request"
+        | _ -> Error "Cannot submit a cancel request for this request"
 
     let rejectCancelRequest requestState = 
         match requestState with
@@ -155,11 +172,11 @@ module Logic =
                     let requestState = defaultArg (userRequests.TryFind requestId) NotCreated
                     validateRequest requestState
             | CancelRequest (_, requestId) -> 
+                let requestState = defaultArg (userRequests.TryFind requestId) NotCreated 
                 if user <> Manager then 
-                    Error "Unauthorized"
-                else 
-                    let requestState = defaultArg (userRequests.TryFind requestId) NotCreated 
                     cancelRequest requestState
+                else 
+                    cancelRequestByManager requestState
             | SubmitCancelRequest (_, requestId) ->
                 let requestState = defaultArg (userRequests.TryFind requestId) NotCreated
                 submitCancelRequest requestState
