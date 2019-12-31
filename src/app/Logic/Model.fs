@@ -125,83 +125,77 @@ module Logic =
                 else
                     let requestState = defaultArg (userRequests.TryFind requestId) NotCreated
                     validateRequest requestState
-            | CancelRequest _ -> 
+            | CancelRequest _ ->
                 Error "Not implemented" //  TODO
             | SubmitCancelRequest _ ->
                 Error "Not implemented" // TODO
             | RejectCancelRequest _ ->
                 Error " Not implemented"
 
-
-    let findAccruedHolidaysToDays (userRequests: UserRequestsState) (userId: UserId) (consultationDate: DateTime) =
-           let dateTmp = consultationDate.AddMonths(-1);
-           let lastDayOfMonthConsultation = DateTime.DaysInMonth(dateTmp.Year, dateTmp.Month)
-           let dateProvider = DateProvider()
-           let dateOfLastMonth = (dateProvider :> IDateProvider).DateTime dateTmp.Year dateTmp.Month lastDayOfMonthConsultation
-           if Map.empty<Guid, RequestState> <> userRequests then
-                userRequests
-                    |> Map.toSeq
-                    |> Seq.map (fun (_, state) -> state)
-                    |> Seq.filter (fun state -> state.Request.Start.Date <= dateOfLastMonth)
-                    |> Seq.map (fun state -> state.Request)
-                    |> Seq.filter (fun state -> state.UserId = userId)
-                    |> Seq.length
-           else
-               0
-
-    let findRemainingHolidaysFromLastYear  (userRequests: UserRequestsState) (userId: UserId) (consultationDate: DateTime) =
+    let findAccruedHolidaysToDays (consultationDate: DateTime) =
+        let holidaysPerMonth = 4 // number of holidays per month
         let dateProvider = DateProvider()
-        let dateLastYear = (dateProvider :> IDateProvider).DateTime (consultationDate.Year - 1) 12 31
-        if Map.empty<Guid, RequestState> <> userRequests then
-                userRequests
-                    |> Map.toSeq
-                    |> Seq.map (fun (_, state) -> state)
-                    |> Seq.filter (fun state -> state.Request.Start.Date <= dateLastYear)
-                    |> Seq.where (fun state -> state.IsActive)
-                    |> Seq.map (fun state -> state.Request)
-                    |> Seq.filter (fun state -> state.UserId = userId)
-                    |> Seq.length
-           else
-               0
+        let startOfYearDate = (dateProvider :> IDateProvider).DateTime consultationDate.Year 1 1
+        let dateBefore = if consultationDate.Month = 1 then
+                             (dateProvider :> IDateProvider).DateTime consultationDate.Year consultationDate.Month consultationDate.Day
+                         else consultationDate.AddMonths(-1)
+        let endOfYearDate = (dateProvider :> IDateProvider).DateTime consultationDate.Year dateBefore.Month dateBefore.Day
+        holidaysPerMonth * (((endOfYearDate.Year - startOfYearDate.Year) * 12) + endOfYearDate.Month - startOfYearDate.Month)
 
+    let findRemainingHolidaysFromLastYear (userRequests: UserRequestsState) (userId: UserId) (consultationDate: DateTime) =
+        let dateProvider = DateProvider()
+        let yearDateOfLastYear = (dateProvider :> IDateProvider).DateTime (consultationDate.Year - 1) 12 31
+        if Map.empty<Guid, RequestState> <> userRequests then
+            let holidays = userRequests
+                        |> Map.toSeq
+                        |> Seq.map (fun (_, state) -> state)
+                        |> Seq.filter (fun state -> state.Request.Start.Date <= yearDateOfLastYear)
+                        |> Seq.where (fun state -> state.IsActive)
+                        |> Seq.map (fun state -> state.Request)
+                        |> Seq.filter (fun state -> state.UserId = userId)
+                        |> Seq.length
+            findAccruedHolidaysToDays yearDateOfLastYear - holidays
+        else
+            0
 
     let findActiveRequests (userRequests: UserRequestsState) (userId: UserId) (consultationDate: DateTime) =
-           let dateProvider = DateProvider()
-           let beginYear = (dateProvider :> IDateProvider).DateTime consultationDate.Year 1 1
-           if Map.empty<Guid, RequestState> <> userRequests then
-                userRequests
-                    |> Map.toSeq
-                    |> Seq.map (fun (_, state) -> state)
-                    |> Seq.filter (fun state -> state.Request.Start.Date >= beginYear && state.Request.Start.Date <= consultationDate)
-                    |> Seq.where (fun state -> state.IsActive)
-                    |> Seq.map (fun state -> state.Request)
-                    |> Seq.filter (fun state -> state.UserId = userId)
-                    |> Seq.length
-           else
-               0
-
+        let dateProvider = DateProvider()
+        let startOfYearDate = (dateProvider :> IDateProvider).DateTime consultationDate.Year 1 1
+        if Map.empty<Guid, RequestState> <> userRequests then
+            userRequests
+                |> Map.toSeq
+                |> Seq.map (fun (_, state) -> state)
+                |> Seq.filter (fun state -> (state.Request.Start.Date >= startOfYearDate) &&
+                                                (state.Request.Start.Date <= consultationDate))
+                |> Seq.where (fun state -> state.IsActive)
+                |> Seq.map (fun state -> state.Request)
+                |> Seq.filter (fun state -> state.UserId = userId)
+                |> Seq.length
+        else
+            0
 
     let findFutureHolidays (userRequests: UserRequestsState) (userId: UserId) (consultationDate: DateTime)  =
-           let dateProvider = DateProvider()
-           let endYear = (dateProvider :> IDateProvider).DateTime consultationDate.Year 12 31
-           let tomorrow = consultationDate.AddDays(1.0)
-           if Map.empty<Guid, RequestState> <> userRequests then
-                userRequests
-                    |> Map.toSeq
-                    |> Seq.map (fun (_, state) -> state)
-                    |> Seq.filter (fun state -> state.Request.Start.Date >= tomorrow && state.Request.Start.Date <= endYear)
-                    |> Seq.where (fun state -> state.IsActive)
-                    |> Seq.map (fun state -> state.Request)
-                    |> Seq.filter (fun state -> state.UserId = userId)
-                    |> Seq.length
-           else
-               0
+        let dateProvider = DateProvider()
+        let endOfYearDate = (dateProvider :> IDateProvider).DateTime consultationDate.Year 12 31
+        let dateOfTomorrow = consultationDate.AddDays(1.0)
+        if Map.empty<Guid, RequestState> <> userRequests then
+            userRequests
+                |> Map.toSeq
+                |> Seq.map (fun (_, state) -> state)
+                |> Seq.filter (fun state -> (state.Request.Start.Date >= dateOfTomorrow) &&
+                                            (state.Request.Start.Date <= endOfYearDate))
+                |> Seq.where (fun state -> state.IsActive)
+                |> Seq.map (fun state -> state.Request)
+                |> Seq.filter (fun state -> state.UserId = userId)
+                |> Seq.length
+        else
+            0
 
 
     let findAvailableHolidays (userRequests: UserRequestsState) (user: User) (consultationDate: DateTime) =
         match user with
         | Employee userId ->
-            let accruedHolidaysToDays = findAccruedHolidaysToDays  userRequests userId consultationDate
+            let accruedHolidaysToDays = findAccruedHolidaysToDays consultationDate
             let remainingHolidaysFromLastYear = findRemainingHolidaysFromLastYear userRequests userId consultationDate
             let activeHolidays = findActiveRequests userRequests userId consultationDate
             let futureHolidays = findFutureHolidays userRequests userId consultationDate
