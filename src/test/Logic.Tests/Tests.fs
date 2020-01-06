@@ -107,8 +107,8 @@ let creationTests =
       let request = {
         UserId = "jdoe"
         RequestId = Guid.NewGuid()
-        Start = { Date = DateTime(2019, 12, 27); HalfDay = AM }
-        End = { Date = DateTime(2019, 12, 27); HalfDay = PM } }
+        Start = { Date = DateTime(2020, 12, 27); HalfDay = AM }
+        End = { Date = DateTime(2020, 12, 27); HalfDay = PM } }
 
       Given [ ]
       |> ConnectedAs (Employee "jdoe")
@@ -133,3 +133,216 @@ let validationTests =
       |> Then (Ok [RequestValidated request]) "The request should have been validated"
     }
   ]
+
+[<Tests>]
+let shouldfindAccruedHolidaysToDaysWhenIsNotEmpty =
+  testList "tests findAccruedHolidaysToDays" [
+    test "A request to findAccruedHolidaysToDays when is not empty" {
+      // Given
+      let dateProvider = DateProvider()
+      let consultationDate = (dateProvider :> IDateProvider).DateTime 2019 3 28
+
+      // Then
+      Expect.isTrue (Logic.findAccruedHolidaysToDays consultationDate = 4)
+          "Requests should findAccruedHolidaysToDays"
+    }
+  ]
+
+[<Tests>]
+let shouldfindAccruedHolidaysToDaysWhenIEmptyForFirstMonth =
+  testList "tests findAccruedHolidaysToDays" [
+    test "A request to findAccruedHolidaysToDays when is empty for first month" {
+      // Given
+      let dateProvider = DateProvider()
+      let consultationDate = (dateProvider :> IDateProvider).DateTime 2019 1 28
+
+      // Then
+      Expect.isTrue (Logic.findAccruedHolidaysToDays consultationDate = 0)
+          "Requests should findAccruedHolidaysToDays for first day"
+    }
+  ]
+
+[<Tests>]
+let shouldfindRemainingHolidaysFromLastYearWhenIsNotEmpty =
+  testList "tests findRemainingHolidaysFromLastYear" [
+    test "A request to findRemainingHolidaysFromLastYear when is not empty" {
+      // Given
+      let dateProvider = DateProvider()
+      let request = {
+        UserId = "jdoe"
+        RequestId = Guid.NewGuid()
+        Start = { Date = (dateProvider :> IDateProvider).DateTime 2018 12 27; HalfDay = AM }
+        End = { Date = (dateProvider :> IDateProvider).DateTime 2018 12 27; HalfDay = PM } }
+      let userRequestsState = Map.ofList [ (Guid.NewGuid(), Logic.Validated request) ]
+      let userId = "jdoe"
+      let consultationDate = (dateProvider :> IDateProvider).DateTime 2019 1 1
+
+      // Then
+      Expect.isTrue (Logic.findRemainingHolidaysFromLastYear userRequestsState userId consultationDate = 39)
+          "Requests should findRemainingHolidaysFromLastYear"
+    }
+  ]
+
+
+[<Tests>]
+let shouldFindActiveRequestsWhenIsEmpty =
+  testList "tests findActiveRequests" [
+      test "A request to findActiveRequests when is empty" {
+        // Given
+        let dateProvider = DateProvider()
+        let request = {
+          UserId = "jdoe"
+          RequestId = Guid.NewGuid()
+          Start = { Date =  (dateProvider :> IDateProvider).DateTime 2018 12 27; HalfDay = AM }
+          End = { Date = (dateProvider :> IDateProvider).DateTime 2018 12 27; HalfDay = PM } }
+        let userRequestsState = Map.ofList [ (Guid.NewGuid(), Logic.Validated request) ]
+        let userId = "jdoe"
+        let consultationDate = (dateProvider :> IDateProvider).DateTime 2019 1 1
+
+        // Then
+        Expect.isTrue (Logic.findActiveRequests userRequestsState userId consultationDate = 0)
+            "Requests should findActiveRequests"
+      }
+  ]
+
+[<Tests>]
+let shouldFindActiveRequestsWhenIsNotEmpty =
+    testList "tests findActiveRequests" [
+      test "A request to findActiveRequests when is not empty" {
+        // Given
+        let dateProvider = DateProvider()
+        let request = {
+          UserId = "jdoe"
+          RequestId = Guid.NewGuid()
+          Start = { Date = (dateProvider :> IDateProvider).DateTime 2019 10 27; HalfDay = AM }
+          End = { Date = (dateProvider :> IDateProvider).DateTime 2019 10 28; HalfDay = PM } }
+        let userRequestsState = Map.ofList [ (Guid.NewGuid(), Logic.PendingValidation request) ]
+        let userId = "jdoe"
+        let consultationDate = (dateProvider :> IDateProvider).CurrentDate
+
+        // Then
+        Expect.isTrue (Logic.findActiveRequests userRequestsState userId consultationDate <> 0)
+            "Requests should findActiveRequests"
+      }
+    ]
+
+[<Tests>]
+let shouldFindActiveRequestsWhenIsOutOfBounds =
+    testList "tests findActiveRequests" [
+      test "A request to findActiveRequests when is out of bounds" {
+        // Given
+        let dateProvider = DateProvider()
+        let request = {
+          UserId = "jdoe"
+          RequestId = Guid.NewGuid()
+          Start = { Date = (dateProvider :> IDateProvider).DateTime 2021 12 27; HalfDay = AM }
+          End = { Date = (dateProvider :> IDateProvider).DateTime 2021 12 28; HalfDay = PM } }
+        let userRequestsState = Map.ofList [ (Guid.NewGuid(), Logic.PendingValidation request) ]
+        let userId = "jdoe"
+        let consultationDate = (dateProvider :> IDateProvider).CurrentDate
+
+        // Then
+        Expect.isTrue (Logic.findActiveRequests userRequestsState userId consultationDate = 0)
+            "Requests should findActiveRequests"
+      }
+    ]
+
+[<Tests>]
+let shouldfindFutureHolidaysWhenIsNotEmpty =
+    testList "tests findFutureHolidays" [
+      test "A request to findFutureHolidays when is not empty" {
+        // Given
+        let dateProvider = DateProvider()
+        let request = {
+          UserId = "jdoe"
+          RequestId = Guid.NewGuid()
+          Start = { Date = (dateProvider :> IDateProvider).DateTime 2020 12 27; HalfDay = AM }
+          End = { Date =  (dateProvider :> IDateProvider).DateTime 2020 12 28; HalfDay = PM } }
+        let userRequestsState = Map.ofList [ (Guid.NewGuid(), Logic.PendingValidation request) ]
+        let userId = "jdoe"
+        let consultationDate = (dateProvider :> IDateProvider).DateTime 2020 5 6
+
+        // Then
+        Expect.isTrue (Logic.findFutureHolidays userRequestsState userId consultationDate <> 0)
+            "Requests should findFutureHolidays"
+      }
+    ]
+
+[<Tests>]
+let shouldfindFutureHolidaysWhenIsEmpty =
+    testList "tests findFutureHolidays" [
+      test "A request to findFutureHolidays when is empty" {
+        // Given
+        let dateProvider = DateProvider()
+        let request = {
+          UserId = "jdoe"
+          RequestId = Guid.NewGuid()
+          Start = { Date = (dateProvider :> IDateProvider).DateTime 2019 5 10; HalfDay = AM }
+          End = { Date = (dateProvider :> IDateProvider).DateTime 2019 5 28; HalfDay = PM } }
+        let userRequestsState = Map.ofList [ (Guid.NewGuid(), Logic.PendingValidation request) ]
+        let userId = "jdoe"
+        let consultationDate = (dateProvider :> IDateProvider).DateTime 2020 5 6
+
+        // Then
+        Expect.isTrue (Logic.findFutureHolidays userRequestsState userId consultationDate = 0)
+            "Requests should findFutureHolidays"
+      }
+    ]
+
+[<Tests>]
+let shouldfindFutureHolidaysWhenIsLimit =
+    testList "tests findFutureHolidays" [
+      test "A request to findFutureHolidays when is limit" {
+        // Given
+        let dateProvider = DateProvider()
+        let request = {
+          UserId = "jdoe"
+          RequestId = Guid.NewGuid()
+          Start = { Date = (dateProvider :> IDateProvider).DateTime 2019 11 16; HalfDay = AM }
+          End = { Date = (dateProvider :> IDateProvider).DateTime 2019 11 16; HalfDay = PM } }
+        let userRequestsState = Map.ofList [ (Guid.NewGuid(), Logic.PendingValidation request) ]
+        let userId = "jdoe"
+        let consultationDate = (dateProvider :> IDateProvider).CurrentDate
+
+        // Then
+        Expect.isTrue (Logic.findFutureHolidays userRequestsState userId consultationDate = 0)
+            "Requests should findFutureHolidays"
+      }
+    ]
+
+[<Tests>]
+let shouldfindAvailableHolidaysWhenIsNotEmpty =
+    testList "tests findAvailableHolidays" [
+      test "A request to findAvailableHolidays when is not empty" {
+        // Given
+        let dateProvider = DateProvider()
+        let request = {
+          UserId = "jdoe"
+          RequestId = Guid.NewGuid()
+          Start = { Date = (dateProvider :> IDateProvider).DateTime 2019 12 27; HalfDay = AM }
+          End = { Date = (dateProvider :> IDateProvider).DateTime 2020 12 28; HalfDay = PM } }
+        let userRequestsState = Map.ofList [ (Guid.NewGuid(), Logic.PendingValidation request) ]
+        let consultationDate = (dateProvider :> IDateProvider).CurrentDate
+        let user = Employee "jdoe"
+
+        // Then
+        Expect.isTrue (Logic.findAvailableHolidays userRequestsState user consultationDate <> 0)
+            "Requests should findAvailableHolidays"
+      }
+ ]
+
+[<Tests>]
+let shouldfindAvailableHolidaysWhenIsEmpty =
+    testList "tests findAvailableHolidays" [
+      test "A request to findAvailableHolidays when is empty taken" {
+        // Given
+        let dateProvider = DateProvider()
+        let userRequestsState = Map.empty
+        let consultationDate = (dateProvider :> IDateProvider).DateTime 2019 3 28
+        let user = Employee "jdoe"
+
+        // Then
+        Expect.isTrue (Logic.findAvailableHolidays userRequestsState user consultationDate = 4)
+            "Requests should findAvailableHolidays"
+      }
+   ]
