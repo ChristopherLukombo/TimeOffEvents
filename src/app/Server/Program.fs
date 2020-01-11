@@ -26,6 +26,7 @@ module HttpHandlers =
     type UserAndRequestId = {
         UserId: UserId
         RequestId: Guid
+        Date: DateTime
     }
 
     let requestTimeOff (handleCommand: Command -> Result<RequestEvent list, string>) =
@@ -92,6 +93,26 @@ module HttpHandlers =
                     return! (BAD_REQUEST message) next ctx
             }
 
+    let history (eventStore: IStore<UserId, RequestEvent>) = 
+        fun (next: HttpFunc) (ctx: HttpContext) ->
+            task {
+                let userAndRequestId = ctx.BindQueryString<UserAndRequestId>()
+                let eventStream = eventStore.GetStream(userAndRequestId.UserId)
+                let allRequestEvent = eventStream.ReadAll() |> Seq.fold Logic.evolveUserRequests Map.empty
+                let currentDate = userAndRequestId.Date
+                let sortedRequests = 
+                    allRequestEvent
+                    |> Map.toSeq 
+                    |> Seq.sortBy (fun (_, state) -> state.Request.Start.Date)
+                    |> Seq.filter (fun (_, state) -> state.Request.Start.Date <= currentDate)
+
+                let result = if Seq.isEmpty sortedRequests then Error "Empty list of request" else Ok sortedRequests
+                
+                match result with
+                | Ok requests -> return! json requests next ctx
+                | Error message -> return! (BAD_REQUEST message) next ctx
+            }
+
 // ---------------------------------
 // Web app
 // ---------------------------------
@@ -127,6 +148,8 @@ let webApp (eventStore: IStore<UserId, RequestEvent>) =
 
                             POST >=> route "/submit-cancel-request" >=> HttpHandlers.submitCancelRequest (handleCommand user)
                             POST >=> route "/reject-cancel-request" >=> HttpHandlers.rejectCancelRequest (handleCommand user)
+
+                            GET >=> route "/info" >=> HttpHandlers.history (eventStore)
                         ]
                     ))
             ])
