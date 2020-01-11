@@ -1,0 +1,376 @@
+{
+	"variables": [],
+	"info": {
+		"name": "TimeOff",
+		"_postman_id": "0a6a47bb-71a3-b0fc-a885-fd8d271b4d65",
+		"description": "",
+		"schema": "https://schema.getpostman.com/json/collection/v2.0.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Login employee1",
+			"request": {
+				"url": "http://localhost:5000/api/users/login",
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"description": ""
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\"UserName\":\"employee1\",\"Password\":\"employee1\"}"
+				},
+				"description": "Login"
+			},
+			"response": []
+		},
+		{
+			"name": "Login manager",
+			"request": {
+				"url": "http://localhost:5000/api/users/login",
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"description": ""
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\"UserName\":\"manager\",\"Password\":\"manager\"}"
+				},
+				"description": "Login"
+			},
+			"response": []
+		},
+		{
+			"name": "RequestTimeOff",
+			"request": {
+				"url": "http://localhost:5000/api/timeoff/request",
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"description": ""
+					},
+					{
+						"key": "Authorization",
+						"value": "Bearer eyJhbGciOiJBMjU2S1ciLCJlbmMiOiJBMjU2Q0JDLUhTNTEyIn0.1vOE8hk2bfmTqyAfNk7WeoOKbP8v6aBseWDuFAJkKJW-UP4bI0T37aO6I5XvEsClPSJiS88XIeeLxBvTiSK2TxLL72OO7PyI.t3znmQO3qOrcCmjDiDSOsQ.sh8ksries1i8K-QUo7xd-0D0oFycMlwcjz_U_uMVKl7QFswfjfMZcZgJ_Y8MsMLrBii05Vf1_IqjSABDmWkzEWwthdeUpHpVKBrkaBZ2R6A.DQ0yhc1RYspZOlrEe0zEaQjRmXTFzWM87rVMKNq0NVA",
+						"description": ""
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n    \"userId\": \"employee1\",\r\n    \"requestId\": \"68fd2f05-1452-41b1-bd44-88a4d75848d7\",\r\n    \"start\": {\r\n        \"date\": \"2020-01-12T00:00:00\",\r\n        \"HalfDay\": {\r\n            \"case\": \"AM\"\r\n        }\r\n    },\r\n    \"End\": {\r\n        \"date\": \"2020-02-25T00:00:00\",\r\n        \"HalfDay\": {\r\n            \"Case\": \"PM\"\r\n        }\r\n    }\r\n}"
+				},
+				"description": ""
+			},
+			"response": []
+		},
+		{
+			"name": "RequestTimeOffInfo",
+			"request": {
+				"url": {
+					"raw": "http://localhost:5000/api/timeoff/info?UserId=employee1&Date=2020-02-10",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "5000",
+					"path": [
+						"api",
+						"timeoff",
+						"info"
+					],
+					"query": [
+						{
+							"key": "UserId",
+							"value": "employee1",
+							"equals": true,
+							"description": ""
+						},
+						{
+							"key": "Date",
+							"value": "2020-02-10",
+							"equals": true,
+							"description": ""
+						}
+					],
+					"variable": []
+				},
+				"method": "GET",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"description": ""
+					},
+					{
+						"key": "Authorization",
+						"value": "Bearer eyJhbGciOiJBMjU2S1ciLCJlbmMiOiJBMjU2Q0JDLUhTNTEyIn0.1vOE8hk2bfmTqyAfNk7WeoOKbP8v6aBseWDuFAJkKJW-UP4bI0T37aO6I5XvEsClPSJiS88XIeeLxBvTiSK2TxLL72OO7PyI.t3znmQO3qOrcCmjDiDSOsQ.sh8ksries1i8K-QUo7xd-0D0oFycMlwcjz_U_uMVKl7QFswfjfMZcZgJ_Y8MsMLrBii05Vf1_IqjSABDmWkzEWwthdeUpHpVKBrkaBZ2R6A.DQ0yhc1RYspZOlrEe0zEaQjRmXTFzWM87rVMKNq0NVA",
+						"description": ""
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": ""
+				},
+				"description": ""
+			},
+			"response": []
+		},
+		{
+			"name": "History",
+			"request": {
+				"url": {
+					"raw": "http://localhost:5000/api/timeoff/history?UserId=employee1&Date=2020-02-10",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "5000",
+					"path": [
+						"api",
+						"timeoff",
+						"history"
+					],
+					"query": [
+						{
+							"key": "UserId",
+							"value": "employee1",
+							"equals": true,
+							"description": ""
+						},
+						{
+							"key": "Date",
+							"value": "2020-02-10",
+							"equals": true,
+							"description": ""
+						}
+					],
+					"variable": []
+				},
+				"method": "GET",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"description": ""
+					},
+					{
+						"key": "Authorization",
+						"value": "Bearer eyJhbGciOiJBMjU2S1ciLCJlbmMiOiJBMjU2Q0JDLUhTNTEyIn0.QITPGpLqzKkwePsC6Jz4WgYwyP6ILSV0BUtME7PLP8TRZYrK8KuES-x8Dw63Oz9XUGazwNbkjo8YGskx8g6ARZozyeyGwN2I.aZBmvhgs6CAiKy6eYtJCAg.KVkntHt8BAf4Btnr12z38mJuClhyanWXicttZGwRTVucw3ph5UkOgvTGPNsKCnA6J0Gwsi3LOQmutxibQC3XGbH7Bm5gPwGBtXi_HPc-VYg.rcpkO4xpqca2ma9ek4fuRO2wBNdut4zsn-R-2QwGZkc",
+						"description": ""
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": ""
+				},
+				"description": ""
+			},
+			"response": []
+		},
+		{
+			"name": "ValidateRequest",
+			"request": {
+				"url": {
+					"raw": "http://localhost:5000/api/timeoff/validate-request?UserId=employee1&RequestId=68fd2f05-1452-41b1-bd44-88a4d75848d7",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "5000",
+					"path": [
+						"api",
+						"timeoff",
+						"validate-request"
+					],
+					"query": [
+						{
+							"key": "UserId",
+							"value": "employee1",
+							"equals": true,
+							"description": ""
+						},
+						{
+							"key": "RequestId",
+							"value": "68fd2f05-1452-41b1-bd44-88a4d75848d7",
+							"equals": true,
+							"description": ""
+						}
+					],
+					"variable": []
+				},
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"description": ""
+					},
+					{
+						"key": "Authorization",
+						"value": "Bearer eyJhbGciOiJBMjU2S1ciLCJlbmMiOiJBMjU2Q0JDLUhTNTEyIn0.Rwd6H945k196OhFQ0SsU0T_Bd0F_FM2izBXo__LN86fXdAYQ1VE0akRvVvXyK6gP3fJ9BRezwliAL14cUd7KG-aJ4ftZZEZR.8YsDNXDCNQaqgnnEVSrfvw.hnacfJ0xdOU5wE0rQXLu8DwQY1lAfej5oLFmggOzF0CBR3mr-aLZjpwY1J6G0ZOI3ipqUxl8PJtxANCRe42_GQ.2anFP5hysJrHdbU6StP3lpOGHlRokz5ZHmluH422y14",
+						"description": ""
+					}
+				],
+				"body": {},
+				"description": ""
+			},
+			"response": []
+		},
+		{
+			"name": "CancelRequest",
+			"request": {
+				"url": {
+					"raw": "http://localhost:5000/api/timeoff/cancel-request?UserId=employee1&RequestId=68fd2f05-1452-41b1-bd44-88a4d75848d7",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "5000",
+					"path": [
+						"api",
+						"timeoff",
+						"cancel-request"
+					],
+					"query": [
+						{
+							"key": "UserId",
+							"value": "employee1",
+							"equals": true,
+							"description": ""
+						},
+						{
+							"key": "RequestId",
+							"value": "68fd2f05-1452-41b1-bd44-88a4d75848d7",
+							"equals": true,
+							"description": ""
+						}
+					],
+					"variable": []
+				},
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"description": ""
+					},
+					{
+						"key": "Authorization",
+						"value": "Bearer eyJhbGciOiJBMjU2S1ciLCJlbmMiOiJBMjU2Q0JDLUhTNTEyIn0.WyjS9sAuE6QeurKOMVnZIjuGQaIuz6ZMxhF-JjVWN2-A2aNjS-g2Rzssgx0Cf4uB3KGo1ITix5KoNpsS3ouwfOlPzWKjz6ot.SyNXc75BDfXqI18UF4kRQQ.vcWweUNL1J_GAzwwZzDS4UXPq01FUBl6IiSFt5OHd4XiG5bQWMTOAE_O_rPE3MbUL2Gqp3IjePGZxNdM7ZlZYA.e-UQ9XCDs9fAwGh1lUbMdxfFYO6P0nvTfguMMHoN5vo",
+						"description": ""
+					}
+				],
+				"body": {},
+				"description": ""
+			},
+			"response": []
+		},
+		{
+			"name": "SubmitCancelRequest",
+			"request": {
+				"url": {
+					"raw": "http://localhost:5000/api/timeoff/submit-cancel-request?UserId=employee1&RequestId=68fd2f05-1452-41b1-bd44-88a4d75848d7",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "5000",
+					"path": [
+						"api",
+						"timeoff",
+						"submit-cancel-request"
+					],
+					"query": [
+						{
+							"key": "UserId",
+							"value": "employee1",
+							"equals": true,
+							"description": ""
+						},
+						{
+							"key": "RequestId",
+							"value": "68fd2f05-1452-41b1-bd44-88a4d75848d7",
+							"equals": true,
+							"description": ""
+						}
+					],
+					"variable": []
+				},
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"description": ""
+					},
+					{
+						"key": "Authorization",
+						"value": "Bearer eyJhbGciOiJBMjU2S1ciLCJlbmMiOiJBMjU2Q0JDLUhTNTEyIn0.Rwd6H945k196OhFQ0SsU0T_Bd0F_FM2izBXo__LN86fXdAYQ1VE0akRvVvXyK6gP3fJ9BRezwliAL14cUd7KG-aJ4ftZZEZR.8YsDNXDCNQaqgnnEVSrfvw.hnacfJ0xdOU5wE0rQXLu8DwQY1lAfej5oLFmggOzF0CBR3mr-aLZjpwY1J6G0ZOI3ipqUxl8PJtxANCRe42_GQ.2anFP5hysJrHdbU6StP3lpOGHlRokz5ZHmluH422y14",
+						"description": ""
+					}
+				],
+				"body": {},
+				"description": ""
+			},
+			"response": []
+		},
+		{
+			"name": "RejectCancelRequest",
+			"request": {
+				"url": {
+					"raw": "http://localhost:5000/api/timeoff/reject-cancel-request?UserId=employee1&RequestId=68fd2f05-1452-41b1-bd44-88a4d75848d7",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "5000",
+					"path": [
+						"api",
+						"timeoff",
+						"reject-cancel-request"
+					],
+					"query": [
+						{
+							"key": "UserId",
+							"value": "employee1",
+							"equals": true,
+							"description": ""
+						},
+						{
+							"key": "RequestId",
+							"value": "68fd2f05-1452-41b1-bd44-88a4d75848d7",
+							"equals": true,
+							"description": ""
+						}
+					],
+					"variable": []
+				},
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"description": ""
+					},
+					{
+						"key": "Authorization",
+						"value": "Bearer eyJhbGciOiJBMjU2S1ciLCJlbmMiOiJBMjU2Q0JDLUhTNTEyIn0.Rwd6H945k196OhFQ0SsU0T_Bd0F_FM2izBXo__LN86fXdAYQ1VE0akRvVvXyK6gP3fJ9BRezwliAL14cUd7KG-aJ4ftZZEZR.8YsDNXDCNQaqgnnEVSrfvw.hnacfJ0xdOU5wE0rQXLu8DwQY1lAfej5oLFmggOzF0CBR3mr-aLZjpwY1J6G0ZOI3ipqUxl8PJtxANCRe42_GQ.2anFP5hysJrHdbU6StP3lpOGHlRokz5ZHmluH422y14",
+						"description": ""
+					}
+				],
+				"body": {},
+				"description": ""
+			},
+			"response": []
+		}
+	]
+}

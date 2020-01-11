@@ -9,7 +9,6 @@ type Command =
     | CancelRequest of UserId * Guid // Annuler une demande de congé
     | SubmitCancelRequest of UserId * Guid // Demander l'annulation d'une demande de congé
     | RejectCancelRequest of UserId * Guid // Annuler une demande d'annulatioin de demande de congé
-    | QueryRequest of UserId * DateTime // Récuperer les infos de congé pour une date donnée
     with
     member this.UserId =
         match this with
@@ -18,7 +17,6 @@ type Command =
         | CancelRequest (userId, _) -> userId
         | SubmitCancelRequest (userId, _) -> userId
         | RejectCancelRequest (userId, _) -> userId
-        | QueryRequest (userId, _) -> userId
 
 // And our events
 type RequestEvent =
@@ -228,7 +226,7 @@ module Logic =
             accruedHolidaysToDays + remainingHolidaysFromLastYear - (activeHolidays + futureHolidays)
         | _ -> invalidOp "User is not an employee"
 
-    let getTimeOffInfo (consultationDate: DateTime) (user: User) (userId: UserId) (userRequests: UserRequestsState) =
+    let calculateTimeOffInfo (consultationDate: DateTime) (user: User) (userId: UserId) (userRequests: UserRequestsState) =
         let result = {
             UserId = userId
             AccruedToDate =  findAccruedHolidaysToDays consultationDate
@@ -238,7 +236,7 @@ module Logic =
             CurrentBalance = findAvailableHolidays userRequests user consultationDate
         }
 
-        result
+        Ok [TimeOffInfoRequested result]
 
     let decide (userRequests: UserRequestsState) (user: User) (command: Command) =
         let relatedUserId = command.UserId
@@ -278,14 +276,3 @@ module Logic =
                 else 
                     let requestState = defaultArg (userRequests.TryFind requestId) NotCreated
                     rejectCancelRequest requestState
-
-    let query (userRequests: UserRequestsState) (user: User) (command: Command) =
-        let relatedUserId = command.UserId
-        match user with
-        | Employee userId when userId <> relatedUserId ->
-            Error "Unauthorized"
-        | _ ->
-            match command with
-            | QueryRequest (_, specificDate) ->
-                let res = getTimeOffInfo specificDate user relatedUserId userRequests
-                Ok [TimeOffInfoRequested res]
