@@ -28,6 +28,11 @@ module HttpHandlers =
         RequestId: Guid
     }
 
+    [<CLIMutable>]
+    type UserIdRequest = {
+        UserId: UserId
+    }
+
     let handleCommand (eventStore: IStore<UserId, RequestEvent>) (user: User) (command: Command) =
         let userId = command.UserId
 
@@ -48,10 +53,11 @@ module HttpHandlers =
     let handleQuery (eventStore: IStore<UserId, RequestEvent>) (user: User) (command: Command) =
         let userId = command.UserId
 
-        //let eventStream = eventStore.GetStream(userId)
+        let eventStream = eventStore.GetStream(userId)
+        let state = eventStream.ReadAll() |> Seq.fold Logic.evolveUserRequests Map.empty
 
         // Decide how to handle the command
-        let result = Logic.query user command
+        let result = Logic.query state user command
 
         // Save events in case of success
         //match result with
@@ -125,17 +131,26 @@ module HttpHandlers =
                     return! (BAD_REQUEST message) next ctx
             }
 
-    let getTimeOffInfo (eventStore: IStore<UserId, RequestEvent>) (user: User) =
+    let getTimeOffInfo (eventStore: IStore<UserId, RequestEvent>) (user: User) (dateNotFormated: string) =
         fun (next: HttpFunc) (ctx: HttpContext) ->
             task {
-                let userAndRequestId = ctx.BindQueryString<UserAndRequestId>()
-                let command = QueryRequest (userAndRequestId.UserId, userAndRequestId.RequestId)
-                let result = handleQuery eventStore user command
-                match result with
-                | Ok [TimeOffInfoRequested timeOffRequest] -> return! json timeOffRequest next ctx
-                | Ok _ -> return! Successful.NO_CONTENT next ctx
-                | Error message ->
-                    return! (BAD_REQUEST message) next ctx
+                let userRequest = ctx.BindQueryString<UserIdRequest>()
+
+                if dateNotFormated.Length <> 8 then
+                    return! (BAD_REQUEST "Invalid date format. The parameter requires 8 digits.") next ctx
+                else
+                    let dateFormated = dateNotFormated.[0..3] + "/" + dateNotFormated.[4..5] + "/" + dateNotFormated.[6..7]
+                    match System.DateTime.TryParse dateFormated with 
+                    | true, date -> 
+                        let command = QueryRequest (userRequest.UserId, date)
+                        let result = handleQuery eventStore user command
+                        match result with
+                        | Ok [TimeOffInfoRequested timeOffRequest] -> return! json timeOffRequest next ctx
+                        | Ok _ -> return! Successful.NO_CONTENT next ctx
+                        | Error message ->
+                            return! (BAD_REQUEST message) next ctx
+                    | false, r -> return! (BAD_REQUEST "Invalid date format.") next ctx
+
             }
 
 // ---------------------------------
@@ -159,7 +174,7 @@ let webApp (eventStore: IStore<UserId, RequestEvent>) =
                             POST >=> route "/submit-cancel-request" >=> HttpHandlers.submitCancelRequest (eventStore) (user)
                             POST >=> route "/reject-cancel-request" >=> HttpHandlers.rejectCancelRequest (eventStore) (user)
 
-                            POST >=> route "/info" >=> HttpHandlers.getTimeOffInfo (eventStore) (user)
+                            GET >=> routef "/info/%s" (fun (date) -> (HttpHandlers.getTimeOffInfo (eventStore) (user)) date)
                         ]
                     ))
             ])

@@ -9,7 +9,7 @@ type Command =
     | CancelRequest of UserId * Guid // Annuler une demande de congé
     | SubmitCancelRequest of UserId * Guid // Demander l'annulation d'une demande de congé
     | RejectCancelRequest of UserId * Guid // Annuler une demande d'annulatioin de demande de congé
-    | QueryRequest of UserId * Guid // Récuperer les infos de congé pour une date donnée
+    | QueryRequest of UserId * DateTime // Récuperer les infos de congé pour une date donnée
     with
     member this.UserId =
         match this with
@@ -228,26 +228,17 @@ module Logic =
             accruedHolidaysToDays + remainingHolidaysFromLastYear - (activeHolidays + futureHolidays)
         | _ -> invalidOp "User is not an employee"
 
-    let getTimeOffInfo (guid: Guid) (consultationDate: DateTime) =
-        let dateProvider = DateProvider()
+    let getTimeOffInfo (consultationDate: DateTime) (user: User) (userId: UserId) (userRequests: UserRequestsState) =
         let result = {
-            UserId = "employee1"
-            RequestId = guid
+            UserId = userId
             AccruedToDate =  findAccruedHolidaysToDays consultationDate
-            CarriedOver = 1
-            TakenToDate = 1
-            Planned = 1
-            CurrentBalance = 1
+            CarriedOver = findRemainingHolidaysFromLastYear userRequests userId consultationDate
+            TakenToDate = findActiveRequests userRequests userId consultationDate
+            Planned = findFutureHolidays userRequests userId consultationDate
+            CurrentBalance = findAvailableHolidays userRequests user consultationDate
         }
 
         result
-        //match requestState with
-        //| PendingValidation request | Validated request
-        //    ->  if request.Start.Date > (dateProvider :> IDateProvider).CurrentDate then 
-        //            Ok [RequestCancelled request]
-        //        else 
-        //            Error "Request cannot be canceled"
-        //| _ -> Error "Request cannot be canceled"  
 
     let decide (userRequests: UserRequestsState) (user: User) (command: Command) =
         let relatedUserId = command.UserId
@@ -288,13 +279,13 @@ module Logic =
                     let requestState = defaultArg (userRequests.TryFind requestId) NotCreated
                     rejectCancelRequest requestState
 
-    let query (user: User) (command: Command) =
+    let query (userRequests: UserRequestsState) (user: User) (command: Command) =
         let relatedUserId = command.UserId
         match user with
         | Employee userId when userId <> relatedUserId ->
             Error "Unauthorized"
         | _ ->
             match command with
-            | QueryRequest (_, requestId) ->
-                let res = getTimeOffInfo requestId (DateTime(2021, 01, 01))
+            | QueryRequest (_, specificDate) ->
+                let res = getTimeOffInfo specificDate user relatedUserId userRequests
                 Ok [TimeOffInfoRequested res]

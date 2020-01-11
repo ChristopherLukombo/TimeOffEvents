@@ -28,7 +28,6 @@ type TimeOffRequest = {
 [<CLIMutable>]
 type TimeOffInfo = {
     UserId: UserId
-    RequestId: Guid
     AccruedToDate: int
     CarriedOver: int
     TakenToDate: int
