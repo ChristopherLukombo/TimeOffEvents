@@ -41,5 +41,6 @@ type IDateProvider =
 
 type DateProvider() =
     interface IDateProvider with
-        member this.CurrentDate = DateTime.Now
+        //member this.CurrentDate = DateTime.Now
+        member this.CurrentDate = DateTime(2020, 01, 10)
         member this.DateTime year month day = DateTime(year, month, day)

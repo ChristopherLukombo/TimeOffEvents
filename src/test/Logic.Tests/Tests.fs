@@ -299,7 +299,7 @@ let shouldFindActiveRequestsWhenIsOutOfBounds =
           End = { Date = (dateProvider :> IDateProvider).DateTime 2021 12 28; HalfDay = PM } }
         let userRequestsState = Map.ofList [ (Guid.NewGuid(), Logic.PendingValidation request) ]
         let userId = "jdoe"
-        let consultationDate = (dateProvider :> IDateProvider).CurrentDate
+        let consultationDate = (dateProvider :> IDateProvider).DateTime 2020 10 25
 
         // Then
         Expect.isTrue (Logic.findActiveRequests userRequestsState userId consultationDate = 0)
@@ -362,7 +362,7 @@ let shouldfindFutureHolidaysWhenIsLimit =
           End = { Date = (dateProvider :> IDateProvider).DateTime 2019 11 16; HalfDay = PM } }
         let userRequestsState = Map.ofList [ (Guid.NewGuid(), Logic.PendingValidation request) ]
         let userId = "jdoe"
-        let consultationDate = (dateProvider :> IDateProvider).CurrentDate
+        let consultationDate = (dateProvider :> IDateProvider).DateTime 2020 01 01
 
         // Then
         Expect.isTrue (Logic.findFutureHolidays userRequestsState userId consultationDate = 0)
@@ -382,7 +382,7 @@ let shouldfindAvailableHolidaysWhenIsNotEmpty =
           Start = { Date = (dateProvider :> IDateProvider).DateTime 2019 12 27; HalfDay = AM }
           End = { Date = (dateProvider :> IDateProvider).DateTime 2020 12 28; HalfDay = PM } }
         let userRequestsState = Map.ofList [ (Guid.NewGuid(), Logic.PendingValidation request) ]
-        let consultationDate = (dateProvider :> IDateProvider).CurrentDate
+        let consultationDate = (dateProvider :> IDateProvider).DateTime 2020 02 25
         let user = Employee "jdoe"
 
         // Then
