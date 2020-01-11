@@ -7,7 +7,7 @@ type private FileStream<'TValue> (path: string) =
   interface IStream<'TValue> with
     member __.ReadAll() =
       let values = new ResizeArray<'TValue>()
-      let stream = new FileStream(path, FileMode.OpenOrCreate, FileAccess.Read)
+      let stream = new FileStream((if path.Contains("employee1") then path else path + "\\employee1"), FileMode.OpenOrCreate, FileAccess.Read)
       use reader = new StreamReader(stream)
       let mutable keepLooping = true
       while keepLooping do

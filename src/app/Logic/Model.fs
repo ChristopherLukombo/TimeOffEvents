@@ -9,6 +9,7 @@ type Command =
     | CancelRequest of UserId * Guid // Annuler une demande de congé
     | SubmitCancelRequest of UserId * Guid // Demander l'annulation d'une demande de congé
     | RejectCancelRequest of UserId * Guid // Annuler une demande d'annulatioin de demande de congé
+    | QueryRequest of UserId * DateTime // Récuperer les infos de congé pour une date donnée
     with
     member this.UserId =
         match this with
@@ -17,6 +18,7 @@ type Command =
         | CancelRequest (userId, _) -> userId
         | SubmitCancelRequest (userId, _) -> userId
         | RejectCancelRequest (userId, _) -> userId
+        | QueryRequest (userId, _) -> userId
 
 // And our events
 type RequestEvent =
@@ -33,6 +35,13 @@ type RequestEvent =
         | RequestCancelled request -> request
         | CancelRequestSubmitted request -> request
         | CancelRequestRejected request -> request
+
+type RequestQuery =
+    | TimeOffInfoRequested of TimeOffInfo
+    with
+    member this.Request =
+        match this with
+        | TimeOffInfoRequested request -> request
 
 // We then define the state of the system,
 // and our 2 main functions `decide` and `evolve`
@@ -60,6 +69,7 @@ module Logic =
             | Validated _ -> true
 
     type UserRequestsState = Map<Guid, RequestState>
+    type UserQueryState = List<RequestState>
 
     let evolveRequest state event =
         match event with
@@ -147,45 +157,6 @@ module Logic =
         | _ ->
             Error "The cancel request cannot be rejected"
 
-    let decide (userRequests: UserRequestsState) (user: User) (command: Command) =
-        let relatedUserId = command.UserId
-        match user with
-        | Employee userId when userId <> relatedUserId ->
-            Error "Unauthorized"
-        | _ ->
-            match command with
-            | RequestTimeOff request ->
-                let activeUserRequests =
-                    userRequests
-                    |> Map.toSeq
-                    |> Seq.map (fun (_, state) -> state)
-                    |> Seq.where (fun state -> state.IsActive)
-                    |> Seq.map (fun state -> state.Request)
-
-                createRequest activeUserRequests request
-
-            | ValidateRequest (_, requestId) ->
-                if user <> Manager then
-                    Error "Unauthorized"
-                else
-                    let requestState = defaultArg (userRequests.TryFind requestId) NotCreated
-                    validateRequest requestState
-            | CancelRequest (_, requestId) -> 
-                let requestState = defaultArg (userRequests.TryFind requestId) NotCreated 
-                if user <> Manager then 
-                    cancelRequest requestState
-                else 
-                    cancelRequestByManager requestState
-            | SubmitCancelRequest (_, requestId) ->
-                let requestState = defaultArg (userRequests.TryFind requestId) NotCreated
-                submitCancelRequest requestState
-            | RejectCancelRequest (_, requestId) ->
-                if user <> Manager then 
-                    Error "Unauthorized"
-                else 
-                    let requestState = defaultArg (userRequests.TryFind requestId) NotCreated
-                    rejectCancelRequest requestState
-
     let findAccruedHolidaysToDays (consultationDate: DateTime) =
         let holidaysPerMonth = 4 // number of holidays per month
         let dateProvider = DateProvider()
@@ -256,3 +227,65 @@ module Logic =
 
             accruedHolidaysToDays + remainingHolidaysFromLastYear - (activeHolidays + futureHolidays)
         | _ -> invalidOp "User is not an employee"
+
+    let getTimeOffInfo (consultationDate: DateTime) (user: User) (userId: UserId) (userRequests: UserRequestsState) =
+        let result = {
+            UserId = userId
+            AccruedToDate =  findAccruedHolidaysToDays consultationDate
+            CarriedOver = findRemainingHolidaysFromLastYear userRequests userId consultationDate
+            TakenToDate = findActiveRequests userRequests userId consultationDate
+            Planned = findFutureHolidays userRequests userId consultationDate
+            CurrentBalance = findAvailableHolidays userRequests user consultationDate
+        }
+
+        result
+
+    let decide (userRequests: UserRequestsState) (user: User) (command: Command) =
+        let relatedUserId = command.UserId
+        match user with
+        | Employee userId when userId <> relatedUserId ->
+            Error "Unauthorized"
+        | _ ->
+            match command with
+            | RequestTimeOff request ->
+                let activeUserRequests =
+                    userRequests
+                    |> Map.toSeq
+                    |> Seq.map (fun (_, state) -> state)
+                    |> Seq.where (fun state -> state.IsActive)
+                    |> Seq.map (fun state -> state.Request)
+
+                createRequest activeUserRequests request
+
+            | ValidateRequest (_, requestId) ->
+                if user <> Manager then
+                    Error "Unauthorized"
+                else
+                    let requestState = defaultArg (userRequests.TryFind requestId) NotCreated
+                    validateRequest requestState
+            | CancelRequest (_, requestId) -> 
+                let requestState = defaultArg (userRequests.TryFind requestId) NotCreated 
+                if user <> Manager then 
+                    cancelRequest requestState
+                else 
+                    cancelRequestByManager requestState
+            | SubmitCancelRequest (_, requestId) ->
+                let requestState = defaultArg (userRequests.TryFind requestId) NotCreated
+                submitCancelRequest requestState
+            | RejectCancelRequest (_, requestId) ->
+                if user <> Manager then 
+                    Error "Unauthorized"
+                else 
+                    let requestState = defaultArg (userRequests.TryFind requestId) NotCreated
+                    rejectCancelRequest requestState
+
+    let query (userRequests: UserRequestsState) (user: User) (command: Command) =
+        let relatedUserId = command.UserId
+        match user with
+        | Employee userId when userId <> relatedUserId ->
+            Error "Unauthorized"
+        | _ ->
+            match command with
+            | QueryRequest (_, specificDate) ->
+                let res = getTimeOffInfo specificDate user relatedUserId userRequests
+                Ok [TimeOffInfoRequested res]
