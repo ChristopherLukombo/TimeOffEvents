@@ -181,10 +181,6 @@ let webApp (eventStore: IStore<UserId, RequestEvent>) =
                             POST >=> route "/cancel-request" >=> HttpHandlers.cancelRequest (eventStore) (user)
                             POST >=> route "/submit-cancel-request" >=> HttpHandlers.submitCancelRequest (eventStore) (user)
                             POST >=> route "/reject-cancel-request" >=> HttpHandlers.rejectCancelRequest (eventStore) (user)
-
-                            POST >=> route "/submit-cancel-request" >=> HttpHandlers.submitCancelRequest (handleCommand user)
-                            POST >=> route "/reject-cancel-request" >=> HttpHandlers.rejectCancelRequest (handleCommand user)
-
                             GET >=> route "/get-history" >=> HttpHandlers.history (eventStore)
                             GET >=> route "/info" >=> HttpHandlers.getTimeOffInfo (eventStore) (user)
                         ]
