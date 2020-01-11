@@ -25,6 +25,17 @@ type TimeOffRequest = {
     End: Boundary
 }
 
+[<CLIMutable>]
+type TimeOffInfo = {
+    UserId: UserId
+    RequestId: Guid
+    AccruedToDate: int
+    CarriedOver: int
+    TakenToDate: int
+    Planned: int
+    CurrentBalance: int
+}
+
 type IDateProvider =
   abstract member CurrentDate : DateTime
   abstract member DateTime : int -> int -> int -> DateTime
