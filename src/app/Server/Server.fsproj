@@ -22,6 +22,8 @@
     <PackageReference Include="Giraffe" Version="3.0.*" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="QueryHandler.fs" />
+    <Compile Include="CommandHandler.fs" />
     <Compile Include="Auth\JsonWebToken.fs" />
     <Compile Include="Auth\Auth.fs" />
     <Compile Include="Program.fs" />
