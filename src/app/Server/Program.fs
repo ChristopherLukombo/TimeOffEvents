@@ -29,24 +29,59 @@ module HttpHandlers =
         Date: DateTime
     }
 
-    let requestTimeOff (handleCommand: Command -> Result<RequestEvent list, string>) =
+    [<CLIMutable>]
+    type UserAndDate = {
+        UserId: UserId
+        Date: DateTime
+    }
+
+    let handleCommand (eventStore: IStore<UserId, RequestEvent>) (user: User) (command: Command) =
+        let userId = command.UserId
+
+        let eventStream = eventStore.GetStream(userId)
+        let state = eventStream.ReadAll() |> Seq.fold Logic.evolveUserRequests Map.empty
+
+        // Decide how to handle the command
+        let result = Logic.decide state user command
+
+        // Save events in case of success
+        match result with
+        | Ok events -> eventStream.Append(events)
+        | _ -> ()
+
+        // Finally, return the result
+        result
+
+    let handleQuery (eventStore: IStore<UserId, RequestEvent>) (user: User) (command: Command) =
+        let userId = command.UserId
+
+        let eventStream = eventStore.GetStream(userId)
+        let state = eventStream.ReadAll() |> Seq.fold Logic.evolveUserRequests Map.empty
+
+        // Decide how to handle the command
+        let result = Logic.query state user command
+
+        // Finally, return the result
+        result
+
+    let requestTimeOff (eventStore: IStore<UserId, RequestEvent>) (user: User) =
         fun (next: HttpFunc) (ctx: HttpContext) ->
             task {
                 let! timeOffRequest = ctx.BindJsonAsync<TimeOffRequest>()
                 let command = RequestTimeOff timeOffRequest
-                let result = handleCommand command
+                let result = handleCommand eventStore user command
                 match result with
                 | Ok _ -> return! json timeOffRequest next ctx
                 | Error message ->
                     return! (BAD_REQUEST message) next ctx
             }
 
-    let validateRequest (handleCommand: Command -> Result<RequestEvent list, string>) =
+    let validateRequest (eventStore: IStore<UserId, RequestEvent>) (user: User) =
         fun (next: HttpFunc) (ctx: HttpContext) ->
             task {
                 let userAndRequestId = ctx.BindQueryString<UserAndRequestId>()
                 let command = ValidateRequest (userAndRequestId.UserId, userAndRequestId.RequestId)
-                let result = handleCommand command
+                let result = handleCommand eventStore user command
                 match result with
                 | Ok [RequestValidated timeOffRequest] -> return! json timeOffRequest next ctx
                 | Ok _ -> return! Successful.NO_CONTENT next ctx
@@ -54,12 +89,12 @@ module HttpHandlers =
                     return! (BAD_REQUEST message) next ctx
             }
 
-    let cancelRequest (handleCommand: Command -> Result<RequestEvent list, string>) =
+    let cancelRequest (eventStore: IStore<UserId, RequestEvent>) (user: User) =
         fun (next: HttpFunc) (ctx: HttpContext) ->
             task {
                 let userAndRequestId = ctx.BindQueryString<UserAndRequestId>()
                 let command = CancelRequest (userAndRequestId.UserId, userAndRequestId.RequestId)
-                let result = handleCommand command
+                let result = handleCommand eventStore user command
                 match result with
                 | Ok [RequestCancelled timeOffRequest] -> return! json timeOffRequest next ctx
                 | Ok _ -> return! Successful.NO_CONTENT next ctx
@@ -67,12 +102,12 @@ module HttpHandlers =
                     return! (BAD_REQUEST message) next ctx
             }
 
-    let submitCancelRequest (handleCommand: Command -> Result<RequestEvent list, string>) =
+    let submitCancelRequest (eventStore: IStore<UserId, RequestEvent>) (user: User) =
         fun (next: HttpFunc) (ctx: HttpContext) ->
             task {
                 let userAndRequestId = ctx.BindQueryString<UserAndRequestId>()
                 let command = SubmitCancelRequest (userAndRequestId.UserId, userAndRequestId.RequestId)
-                let result = handleCommand command
+                let result = handleCommand eventStore user command
                 match result with
                 | Ok [CancelRequestSubmitted timeOffRequest] -> return! json timeOffRequest next ctx
                 | Ok _ -> return! Successful.NO_CONTENT next ctx
@@ -80,12 +115,12 @@ module HttpHandlers =
                     return! (BAD_REQUEST message) next ctx
             }
 
-    let rejectCancelRequest (handleCommand: Command -> Result<RequestEvent list, string>) =
+    let rejectCancelRequest (eventStore: IStore<UserId, RequestEvent>) (user: User) =
         fun (next: HttpFunc) (ctx: HttpContext) ->
             task {
                 let userAndRequestId = ctx.BindQueryString<UserAndRequestId>()
                 let command = RejectCancelRequest (userAndRequestId.UserId, userAndRequestId.RequestId)
-                let result = handleCommand command
+                let result = handleCommand eventStore user command
                 match result with
                 | Ok [CancelRequestRejected timeOffRequest] -> return! json timeOffRequest next ctx
                 | Ok _ -> return! Successful.NO_CONTENT next ctx
@@ -113,27 +148,26 @@ module HttpHandlers =
                 | Error message -> return! (BAD_REQUEST message) next ctx
             }
 
+    let getTimeOffInfo (eventStore: IStore<UserId, RequestEvent>) (user: User) =
+        fun (next: HttpFunc) (ctx: HttpContext) ->
+            task {
+                let userAndDate = ctx.BindQueryString<UserAndDate>()
+                let command = QueryRequest (userAndDate.UserId, userAndDate.Date)
+                let result = handleQuery eventStore user command
+                match result with
+                | Ok [TimeOffInfoRequested timeOffRequest] -> return! json timeOffRequest next ctx
+                | Ok _ -> return! Successful.NO_CONTENT next ctx
+                | Error message ->
+                    return! (BAD_REQUEST message) next ctx
+
+            }
+
 // ---------------------------------
 // Web app
 // ---------------------------------
 
 let webApp (eventStore: IStore<UserId, RequestEvent>) =
-    let handleCommand (user: User) (command: Command) =
-        let userId = command.UserId
-
-        let eventStream = eventStore.GetStream(userId)
-        let state = eventStream.ReadAll() |> Seq.fold Logic.evolveUserRequests Map.empty
-
-        // Decide how to handle the command
-        let result = Logic.decide state user command
-
-        // Save events in case of success
-        match result with
-        | Ok events -> eventStream.Append(events)
-        | _ -> ()
-
-        // Finally, return the result
-        result
+    
         
     choose [
         subRoute "/api"
@@ -142,14 +176,14 @@ let webApp (eventStore: IStore<UserId, RequestEvent>) =
                 subRoute "/timeoff"
                     (Auth.Handlers.requiresJwtTokenForAPI (fun user ->
                         choose [
-                            POST >=> route "/request" >=> HttpHandlers.requestTimeOff (handleCommand user)
-                            POST >=> route "/validate-request" >=> HttpHandlers.validateRequest (handleCommand user)
-                            POST >=> route "/cancel-request" >=> HttpHandlers.cancelRequest (handleCommand user)
+                            POST >=> route "/request" >=> HttpHandlers.requestTimeOff (eventStore) (user)
+                            POST >=> route "/validate-request" >=> HttpHandlers.validateRequest (eventStore) (user)
+                            POST >=> route "/cancel-request" >=> HttpHandlers.cancelRequest (eventStore) (user)
+                            POST >=> route "/submit-cancel-request" >=> HttpHandlers.submitCancelRequest (eventStore) (user)
+                            POST >=> route "/reject-cancel-request" >=> HttpHandlers.rejectCancelRequest (eventStore) (user)
 
-                            POST >=> route "/submit-cancel-request" >=> HttpHandlers.submitCancelRequest (handleCommand user)
-                            POST >=> route "/reject-cancel-request" >=> HttpHandlers.rejectCancelRequest (handleCommand user)
-
-                            GET >=> route "/info" >=> HttpHandlers.history (eventStore)
+                            GET >=> route "/history" >=> HttpHandlers.history (eventStore)
+                            GET >=> route "/info" >=> HttpHandlers.getTimeOffInfo (eventStore) (user)
                         ]
                     ))
             ])
