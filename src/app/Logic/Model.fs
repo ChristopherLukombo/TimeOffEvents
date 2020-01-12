@@ -165,6 +165,25 @@ module Logic =
         let endOfYearDate = (dateProvider :> IDateProvider).DateTime consultationDate.Year dateBefore.Month dateBefore.Day
         holidaysPerMonth * (((endOfYearDate.Year - startOfYearDate.Year) * 12) + endOfYearDate.Month - startOfYearDate.Month)
 
+
+    let findDatesBetweenDateBeginAndDateEnd (request: TimeOffRequest) =
+        let dateProvider = DateProvider()
+        let dateBegin = (dateProvider :> IDateProvider).DateTime request.Start.Date.Year request.Start.Date.Month request.Start.Date.Day
+        let dateEnd = (dateProvider :> IDateProvider).DateTime request.End.Date.Year request.End.Date.Month request.End.Date.Day
+
+        Seq.unfold (fun d -> if d <= dateEnd then Some(d, d.AddDays(1.0)) else None) dateBegin
+          |> Seq.toList
+
+
+    let applySumBetweenDateBeginAndDateEnd (request: TimeOffRequest) =
+        let balance = findDatesBetweenDateBeginAndDateEnd request
+                    |> List.map (fun (holiday : DateTime) -> if holiday = request.Start.Date && request.Start.HalfDay = AM && holiday = request.End.Date && request.End.HalfDay = AM && request.Start.Date = request.End.Date then 0.50 // case on the same day morning
+                                                             else if holiday = request.Start.Date && request.Start.HalfDay = PM && holiday = request.End.Date && request.End.HalfDay = PM && request.Start.Date = request.End.Date then 0.50 // case on the same afternoon
+                                                             else if (holiday = request.Start.Date && request.Start.HalfDay = AM && holiday = request.End.Date && request.End.HalfDay = PM && request.Start.Date = request.End.Date) then 1.0 // all day
+                                                             else if holiday > request.Start.Date && request.End.HalfDay = AM then 0.5 // case AM
+                                                             else 1.0) // case PM
+        List.fold (fun acc elem -> acc + elem) 0.0 balance
+
     let findRemainingHolidaysFromLastYear (userRequests: UserRequestsState) (userId: UserId) (consultationDate: DateTime) =
         let dateProvider = DateProvider()
         let yearDateOfLastYear = (dateProvider :> IDateProvider).DateTime (consultationDate.Year - 1) 12 31
@@ -176,10 +195,13 @@ module Logic =
                         |> Seq.where (fun state -> state.IsActive)
                         |> Seq.map (fun state -> state.Request)
                         |> Seq.filter (fun state -> state.UserId = userId)
-                        |> Seq.length
-            findAccruedHolidaysToDays yearDateOfLastYear - holidays
+                        |> Seq.map (fun (request) -> applySumBetweenDateBeginAndDateEnd request)
+                        |> Seq.toArray
+                        |> Seq.sum
+
+            float(findAccruedHolidaysToDays yearDateOfLastYear) - holidays
         else
-            0
+            0.0
 
     let findActiveRequests (userRequests: UserRequestsState) (userId: UserId) (consultationDate: DateTime) =
         let dateProvider = DateProvider()
@@ -214,7 +236,6 @@ module Logic =
         else
             0
 
-
     let findAvailableHolidays (userRequests: UserRequestsState) (user: User) (consultationDate: DateTime) =
         match user with
         | Employee userId ->
@@ -223,7 +244,7 @@ module Logic =
             let activeHolidays = findActiveRequests userRequests userId consultationDate
             let futureHolidays = findFutureHolidays userRequests userId consultationDate
 
-            accruedHolidaysToDays + remainingHolidaysFromLastYear - (activeHolidays + futureHolidays)
+            float(accruedHolidaysToDays) + remainingHolidaysFromLastYear - float((activeHolidays + futureHolidays))
         | _ -> invalidOp "User is not an employee"
 
     let calculateTimeOffInfo (consultationDate: DateTime) (user: User) (userId: UserId) (userRequests: UserRequestsState) =

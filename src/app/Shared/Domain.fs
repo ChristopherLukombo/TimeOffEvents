@@ -29,10 +29,10 @@ type TimeOffRequest = {
 type TimeOffInfo = {
     UserId: UserId
     AccruedToDate: int
-    CarriedOver: int
+    CarriedOver: float
     TakenToDate: int
     Planned: int
-    CurrentBalance: int
+    CurrentBalance: float
 }
 
 type IDateProvider =

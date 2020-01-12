@@ -228,13 +228,13 @@ let shouldfindRemainingHolidaysFromLastYearWhenIsNotEmpty =
         UserId = "jdoe"
         RequestId = Guid.NewGuid()
         Start = { Date = (dateProvider :> IDateProvider).DateTime 2018 12 27; HalfDay = AM }
-        End = { Date = (dateProvider :> IDateProvider).DateTime 2018 12 27; HalfDay = PM } }
+        End = { Date = (dateProvider :> IDateProvider).DateTime 2018 12 28; HalfDay = PM } }
       let userRequestsState = Map.ofList [ (Guid.NewGuid(), Logic.Validated request) ]
       let userId = "jdoe"
       let consultationDate = (dateProvider :> IDateProvider).DateTime 2019 1 1
 
       // Then
-      Expect.isTrue (Logic.findRemainingHolidaysFromLastYear userRequestsState userId consultationDate = 39)
+      Expect.equal (Logic.findRemainingHolidaysFromLastYear userRequestsState userId consultationDate) 38.0
           "Requests should findRemainingHolidaysFromLastYear"
     }
   ]
@@ -267,10 +267,10 @@ let shouldFindActiveRequestsWhenIsNotEmpty =
       test "A request to findActiveRequests when is not empty" {
         // Given
         let dateProvider = DateProvider()
-        
+
         let yesterday = (dateProvider :> IDateProvider).CurrentDate.AddDays(-1.0) // Yesterday
         let twoDaysAgo = (dateProvider :> IDateProvider).CurrentDate.AddDays(-2.0) // twoDaysAgo
-        
+
         let request = {
           UserId = "jdoe"
           RequestId = Guid.NewGuid()
@@ -386,7 +386,7 @@ let shouldfindAvailableHolidaysWhenIsNotEmpty =
         let user = Employee "jdoe"
 
         // Then
-        Expect.isTrue (Logic.findAvailableHolidays userRequestsState user consultationDate <> 0)
+        Expect.isTrue (Logic.findAvailableHolidays userRequestsState user consultationDate <> 0.0)
             "Requests should findAvailableHolidays"
       }
  ]
@@ -402,7 +402,7 @@ let shouldfindAvailableHolidaysWhenIsEmpty =
         let user = Employee "jdoe"
 
         // Then
-        Expect.isTrue (Logic.findAvailableHolidays userRequestsState user consultationDate = 4)
+        Expect.equal (Logic.findAvailableHolidays userRequestsState user consultationDate) 4.0
             "Requests should findAvailableHolidays"
       }
    ]
